@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>좌석 현황판</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .wrap { max-width: 1100px; }
+  :root { --seat-w: minmax(44px, 1fr); --aisle: 16px; --door-w: 26px; }
+  .seat-grid { grid-auto-rows: minmax(64px, auto); gap: 4px; }
+  .seat .no { font-size: 11px; }
+  .seat .nm { font-size: 15px; }
+  .seat .bd { font-size: 11px; color: var(--muted); }
+  .seat.mine .bd { color: #dbe7ff; }
+  .door { font-size: 15px; }
+  .seat.filled { background: #e6f0ff; border-color: var(--primary); }
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat { flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  .stat b { font-size: 26px; display: block; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+  .tools .btn { width: auto; margin: 0; padding: 10px 14px; font-size: 14px; }
+  .print-title { display: none; }
+  .person { display: flex; justify-content: space-between; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+  .person button { padding: 8px 12px; border: 0; border-radius: 8px; background: var(--primary); color: #fff; font-weight: 700; }
+  #pickList { max-height: 46vh; overflow: auto; }
+  @media print {
+    @page { size: A3 portrait; margin: 10mm; }
+    body { background: #fff; color: #000; }
+    .no-print, .tools, .stats, .legend, .toast, .sheet-bg { display: none !important; }
+    .print-title { display: block; text-align: center; font-size: 28pt; font-weight: 900; letter-spacing: 12px; margin-bottom: 6mm; }
+    .wrap { max-width: none; padding: 0; }
+    .card { border: 0; padding: 0; }
+    :root { --seat-w: 1fr; --aisle: 5mm; --door-w: 9mm; }
+    .seat-grid { grid-auto-rows: 30mm; gap: 0; }
+    .back-row { gap: 0; }
+    .seat { border-radius: 0; border-color: #000 !important; background: #fff !important; color: #000 !important; justify-content: space-evenly; align-items: stretch; padding: 2mm; }
+    .seat .no { text-align: left; color: #555; font-size: 8pt; }
+    .seat .nm { font-size: 13pt; text-align: center; }
+    .seat .bd { font-size: 10pt; text-align: center; color: #000; }
+    .door { font-size: 14pt; }
+    .room-front { font-size: 11pt; }
+    .staff-desk { font-size: 11pt; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="print-title">강 의 실 &nbsp; 배 치 도</div>
+  <h1 class="no-print">좌석 현황판 <span class="muted" id="roundLbl"></span></h1>
+  <div class="stats no-print">
+    <div class="stat">명단<b id="sTotal">0</b></div>
+    <div class="stat">출석<b id="sAtt">0</b></div>
+    <div class="stat">좌석지정<b id="sSeat">0</b></div>
+    <div class="stat">갱신<b id="sUpd" style="font-size:18px">-</b></div>
+  </div>
+  <div class="tools">
+    <input id="pin" type="password" inputmode="numeric" placeholder="직원 PIN (실명 보기)" style="max-width:220px">
+    <button class="btn" id="pinBtn" type="button">직원 모드</button>
+    <button class="btn secondary" id="printBtn" type="button">배치도 인쇄(A3)</button>
+    <span class="muted" id="modeLbl">공개 모드: 이름 일부 가림</span>
+  </div>
+  <div class="card">
+    <div class="map-scroll" id="map"></div>
+  </div>
+</div>
+
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet">
+    <div class="muted" id="sheetSub"></div>
+    <div class="big" id="sheetTitle"></div>
+    <div id="sheetBody"></div>
+    <button class="btn secondary" id="closeSheet" type="button">닫기</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+  var api = APP.api, store = APP.store, esc = APP.esc, $ = function (id) { return document.getElementById(id); };
+  var pin = store.get('board_pin') || '';
+  var admin = false;
+  var data = { seats: {} };
+  var sheetSeat = null;
+
+  function toast(t) {
+    var el = $('toast'); el.textContent = t; el.classList.add('show');
+    clearTimeout(toast.tm); toast.tm = setTimeout(function () { el.classList.remove('show'); }, 2600);
+  }
+
+  APP.renderSeatMap($('map'), { onSeat: onSeat });
+  // 이름·생년월일 칸 추가 (인쇄 시 종이 배치도와 같은 모양)
+  $('map').querySelectorAll('.seat').forEach(function (b) {
+    var bd = document.createElement('span'); bd.className = 'bd'; b.appendChild(bd);
+  });
+
+  function paint() {
+    APP.updateSeats($('map'), function (id, b) {
+      var v = data.seats[id];
+      var name = !v ? '' : (typeof v === 'string' ? v : v.name);
+      b.classList.toggle('filled', !!v);
+      b.querySelector('.nm').textContent = name;
+      b.querySelector('.bd').textContent = v && typeof v === 'object' ? v.birth : '';
+    });
+    $('sTotal').textContent = data.total || 0;
+    $('sAtt').textContent = data.attended || 0;
+    $('sSeat').textContent = data.seated || 0;
+    $('sUpd').textContent = APP.hhmmss();
+    $('roundLbl').textContent = data.round ? '· 오프라인 ' + data.round + '차' : '';
+    $('modeLbl').textContent = admin ? '직원 모드: 실명 표시 · 좌석을 누르면 해제/배정' : '공개 모드: 이름 일부 가림';
+  }
+
+  async function refresh() {
+    try {
+      var res = admin ? await api('adminState', { pin: pin }) : await api('seatState', {});
+      if (!res.ok) {
+        if (admin && (res.code === 'PIN' || res.code === 'PIN_LOCK')) { admin = false; toast(res.msg); }
+        return;
+      }
+      data = res;
+      paint();
+    } catch (e) {}
+  }
+
+  function loop() {
+    setTimeout(function () { if (!document.hidden) refresh().finally(loop); else loop(); }, 3000);
+  }
+
+  $('pin').value = pin;
+  $('pinBtn').addEventListener('click', async function () {
+    pin = $('pin').value.trim();
+    store.set('board_pin', pin);
+    admin = true;
+    await refresh();
+    if (admin) toast('직원 모드로 전환했습니다.');
+  });
+  $('printBtn').addEventListener('click', function () {
+    if (!admin) toast('실명 배치도는 직원 모드에서 인쇄됩니다.');
+    setTimeout(function () { window.print(); }, admin ? 0 : 800);
+  });
+
+  // ---------- 직원 모드: 좌석 관리 ----------
+  function onSeat(id) {
+    if (!admin) return;
+    sheetSeat = id;
+    var v = data.seats[id];
+    $('sheetSub').textContent = APP.seatLabel(id);
+    if (v) {
+      $('sheetTitle').textContent = v.name + ' (' + v.birth + ')';
+      $('sheetBody').innerHTML = '<p class="muted">출석 ' + esc(v.att || '기록 없음') + '</p>' +
+        '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">이 좌석 해제</button>';
+      $('clearBtn').addEventListener('click', function () { seatOp({ op: 'clear', seat: id }); });
+    } else {
+      $('sheetTitle').textContent = '빈 좌석 · 직접 배정';
+      $('sheetBody').innerHTML = '<input id="q" type="search" placeholder="이름 검색 (출석자 중 좌석 미지정)"><div id="pickList"></div>';
+      $('q').addEventListener('input', renderPick);
+      renderPick();
+    }
+    $('sheetBg').classList.add('show');
+  }
+
+  function renderPick() {
+    var q = ($('q').value || '').replace(/\s/g, '');
+    var list = (data.people || []).filter(function (p) { return !p[4] && (!q || p[1].indexOf(q) >= 0); });
+    list.sort(function (a, b) { return (b[3] ? 1 : 0) - (a[3] ? 1 : 0) || a[1].localeCompare(b[1], 'ko'); });
+    $('pickList').innerHTML = list.slice(0, 80).map(function (p) {
+      return '<div class="person"><div><b>' + esc(p[1]) + '</b> <span class="muted">' + esc(p[2]) + (p[3] ? ' · 출석 ' + esc(p[3]) : ' · 미출석') + '</span></div>' +
+        '<button type="button" data-o="' + esc(p[0]) + '">배정</button></div>';
+    }).join('') || '<p class="muted">대상이 없습니다.</p>';
+    $('pickList').querySelectorAll('button[data-o]').forEach(function (b) {
+      b.addEventListener('click', function () { seatOp({ op: 'assign', seat: sheetSeat, o: b.dataset.o }); });
+    });
+  }
+
+  async function seatOp(body) {
+    try {
+      var res = await api('adminSeat', Object.assign({ pin: pin }, body));
+      toast(res.ok ? '처리했습니다.' : (res.msg || '처리하지 못했습니다.'));
+    } catch (e) { toast('연결 오류'); }
+    $('sheetBg').classList.remove('show');
+    refresh();
+  }
+  $('closeSheet').addEventListener('click', function () { $('sheetBg').classList.remove('show'); });
+
+  refresh().finally(loop);
+})();
+</script>
+</body>
+</html>

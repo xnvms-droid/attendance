@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex">
+<title>출석 스캐너</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  body.scanning { background: #000; overflow: hidden; }
+  #scanView { position: fixed; inset: 0; display: none; }
+  body.scanning #scanView { display: block; }
+  body.scanning #setupView { display: none; }
+  #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .top {
+    position: absolute; left: 0; right: 0; top: 0; padding: calc(8px + env(safe-area-inset-top)) 10px 8px;
+    background: rgba(0,0,0,.6); color: #fff; display: flex; align-items: center; gap: 8px; font-size: 14px; z-index: 5;
+  }
+  .top .count { font-size: 18px; font-weight: 800; }
+  .top .sp { flex: 1; }
+  .top button { background: #fff2; color: #fff; border: 1px solid #fff6; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  .pending { font-size: 12px; opacity: .85; }
+  .pending.warn { color: #ffd166; opacity: 1; font-weight: 700; }
+  .frame { position: absolute; inset: 0; border: 0 solid transparent; pointer-events: none; transition: border-width .08s; z-index: 4; }
+  .frame.ok { border: 14px solid #19c463; }
+  .frame.dup { border: 14px solid #ffb020; }
+  .frame.bad { border: 14px solid #ff3344; }
+  .result {
+    position: absolute; left: 10px; right: 10px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 5;
+    border-radius: 16px; padding: 14px 16px; text-align: center; color: #fff; background: rgba(0,0,0,.65);
+  }
+  .result .main { font-size: 30px; font-weight: 900; line-height: 1.2; }
+  .result .sub { font-size: 15px; margin-top: 2px; white-space: pre-line; }
+  .result.ok { background: #138a4a; }
+  .result.dup { background: #b9770e; }
+  .result.bad { background: #c0182a; }
+  .panel { position: fixed; inset: 0; background: var(--bg); z-index: 20; display: none; overflow: auto; }
+  .panel.show { display: block; }
+  .person { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-bottom: 1px solid var(--line); gap: 8px; }
+  .person .nm { font-weight: 700; font-size: 16px; }
+  .person .st { font-size: 13px; color: var(--muted); }
+  .person button { padding: 8px 12px; border-radius: 8px; border: 0; background: var(--primary); color: #fff; font-weight: 700; }
+  .person.done button { background: var(--seat-taken); color: #333; }
+  #wedge { position: absolute; opacity: 0; width: 1px; height: 1px; left: -10px; }
+  .faillog { font-size: 13px; }
+</style>
+</head>
+<body>
+<!-- ① 시작 화면 -->
+<div class="wrap" id="setupView">
+  <h1>출석 스캐너 (직원용)</h1>
+  <div class="card">
+    <label for="pin">직원 PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+    <label for="dev">이 기기 이름 (예: 앞문1, 뒷문)</label>
+    <input id="dev" type="text" maxlength="10" placeholder="앞문1">
+    <button class="btn" id="startBtn" type="button">스캔 시작</button>
+    <div class="msg" id="setupMsg"></div>
+  </div>
+  <div class="card muted">
+    · 스캔 결과는 휴대폰에서 즉시 판정하고, 시트 기록은 뒤에서 자동 전송합니다.<br>
+    · 여러 대를 동시에 사용해도 됩니다. (앞문·뒷문 각 1대 이상 권장)<br>
+    · 화면 상단 '미전송'이 0이 되어야 시트 기록이 끝난 것입니다.<br>
+    · 2D 바코드 스캐너(키보드 입력 방식)를 연결해도 같은 화면에서 인식됩니다.
+  </div>
+</div>
+
+<!-- ② 스캔 화면 -->
+<div id="scanView">
+  <video id="video" playsinline muted></video>
+  <div class="frame" id="frame"></div>
+  <div class="top">
+    <div>
+      <div><span id="roundLbl"></span> · 출석 <span class="count" id="cnt">0</span>/<span id="tot">0</span></div>
+      <div class="pending" id="pend">미전송 0</div>
+    </div>
+    <div class="sp"></div>
+    <button id="torchBtn" type="button" hidden>조명</button>
+    <button id="manualBtn" type="button">수동출석</button>
+    <button id="stopBtn" type="button">종료</button>
+  </div>
+  <div class="result" id="result"><div class="main">QR을 비춰 주세요</div><div class="sub" id="resultSub"></div></div>
+</div>
+
+<!-- ③ 수동 출석 -->
+<div class="panel" id="manualPanel">
+  <div class="wrap">
+    <h1>수동 출석</h1>
+    <input id="search" type="search" placeholder="이름 검색">
+    <div id="list"></div>
+    <h2 style="margin-top:18px">처리 실패 기록</h2>
+    <div id="faillog" class="faillog muted">없음</div>
+    <button class="btn secondary" id="closeManual" type="button">스캔 화면으로</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="assets/common.js"></script>
+<script type="module">
+import QrScanner from './vendor/qr-scanner.min.js';
+
+const { api, hmac, store, hhmmss, esc } = window.APP;
+const $ = (id) => document.getElementById(id);
+
+const S = {
+  pin: store.get('scan_pin') || '',
+  dev: store.get('scan_dev') || '',
+  round: '', secret: '', valid: 300, grace: 15, future: 90,
+  roster: new Map(),     // 주문번호 → {name, birth, att, seat, status}
+  queue: store.getJSON('scan_queue') || [],
+  inflight: false,
+  recent: new Map(),     // 같은 QR 연속 인식 방지
+  fails: [],
+  scanner: null,
+  audio: null
+};
+$('pin').value = S.pin;
+$('dev').value = S.dev;
+
+// ---------- 소리·진동 ----------
+function beep(type) {
+  try {
+    if (!S.audio) return;
+    const plan = type === 'ok' ? [[1320, 0.09]] : type === 'dup' ? [[660, 0.08], [660, 0.08]] : [[220, 0.32]];
+    let t = S.audio.currentTime;
+    for (const [f, d] of plan) {
+      const o = S.audio.createOscillator(), g = S.audio.createGain();
+      o.frequency.value = f; o.type = 'square';
+      g.gain.value = 0.15;
+      o.connect(g); g.connect(S.audio.destination);
+      o.start(t); o.stop(t + d);
+      t += d + 0.05;
+    }
+  } catch (e) {}
+  try { navigator.vibrate && navigator.vibrate(type === 'ok' ? 60 : type === 'dup' ? [40, 40, 40] : 300); } catch (e) {}
+}
+
+let resultTimer = null;
+function show(type, main, sub) {
+  const box = $('result');
+  box.className = 'result ' + type;
+  box.querySelector('.main').textContent = main;
+  $('resultSub').textContent = sub || '';
+  $('frame').className = 'frame ' + type;
+  beep(type);
+  clearTimeout(resultTimer);
+  resultTimer = setTimeout(() => {
+    box.className = 'result';
+    box.querySelector('.main').textContent = 'QR을 비춰 주세요';
+    $('resultSub').textContent = '';
+    $('frame').className = 'frame';
+  }, type === 'bad' ? 2500 : 1300);
+}
+
+function updateCounts() {
+  let n = 0;
+  S.roster.forEach((p) => { if (p.att) n++; });
+  $('cnt').textContent = n;
+  $('tot').textContent = S.roster.size;
+  const pe = $('pend');
+  pe.textContent = '미전송 ' + S.queue.length + (S.inflight ? ' (전송 중)' : '');
+  pe.classList.toggle('warn', S.queue.length > 0);
+}
+
+function persistQueue() { store.setJSON('scan_queue', S.queue); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+// ---------- 시작 ----------
+async function loadInit() {
+  const res = await api('staffInit', { pin: S.pin }, 20000);
+  if (!res.ok) { const err = new Error(res.msg || '시작 정보를 받지 못했습니다.'); err.server = true; throw err; }
+  S.round = String(res.round);
+  S.secret = res.secret;
+  S.valid = res.validSec; S.grace = res.graceSec; S.future = res.futureSec;
+  S.roster.clear();
+  res.roster.forEach(([o, name, birth, att, seat, status]) => S.roster.set(String(o), { name, birth, att, seat, status }));
+  // 이전에 보내지 못한 기록 반영
+  S.queue.forEach((q) => { const p = q.o && S.roster.get(q.o); if (p && !p.att) p.att = hhmmss(new Date(q.at)); });
+  store.setJSON('scan_cache', { round: S.round, secret: S.secret, valid: S.valid, grace: S.grace, future: S.future, roster: res.roster, title: res.title });
+  $('roundLbl').textContent = S.round + '차';
+}
+
+function loadCache() {
+  const c = store.getJSON('scan_cache');
+  if (!c) return false;
+  S.round = c.round; S.secret = c.secret; S.valid = c.valid; S.grace = c.grace; S.future = c.future;
+  c.roster.forEach(([o, name, birth, att, seat, status]) => S.roster.set(String(o), { name, birth, att, seat, status }));
+  $('roundLbl').textContent = S.round + '차';
+  return true;
+}
+
+$('startBtn').addEventListener('click', async () => {
+  S.pin = $('pin').value.trim();
+  S.dev = $('dev').value.trim() || '스캐너';
+  store.set('scan_pin', S.pin);
+  store.set('scan_dev', S.dev);
+  try { S.audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  const msg = $('setupMsg');
+  msg.className = 'msg'; msg.textContent = '명단을 불러오는 중입니다…';
+  try {
+    await loadInit();
+  } catch (e) {
+    if (e.server) {
+      msg.className = 'msg bad'; msg.textContent = e.message;
+      return;
+    }
+    if (loadCache()) {
+      msg.className = 'msg bad';
+      msg.textContent = '서버 연결 실패 → 이 기기에 저장된 명단으로 시작합니다. (기록은 연결되면 자동 전송)';
+    } else {
+      msg.className = 'msg bad'; msg.textContent = e.message || '서버에 연결하지 못했습니다.';
+      return;
+    }
+  }
+  await startCamera();
+});
+
+async function startCamera() {
+  document.body.classList.add('scanning');
+  updateCounts();
+  try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) {}
+  const video = $('video');
+  S.scanner = new QrScanner(video, (r) => onCode(r.data), {
+    preferredCamera: 'environment',
+    maxScansPerSecond: 25,
+    returnDetailedScanResult: true,
+    highlightScanRegion: false,
+    highlightCodeOutline: false,
+    calculateScanRegion: (v) => {
+      const s = Math.round(Math.min(v.videoWidth, v.videoHeight) * 0.85);
+      const d = Math.min(s, 520);
+      return { x: Math.round((v.videoWidth - s) / 2), y: Math.round((v.videoHeight - s) / 2), width: s, height: s, downScaledWidth: d, downScaledHeight: d };
+    }
+  });
+  try {
+    await S.scanner.start();
+    if (await S.scanner.hasFlash()) $('torchBtn').hidden = false;
+  } catch (e) {
+    show('bad', '카메라를 열 수 없습니다', '브라우저의 카메라 권한을 허용해 주세요.');
+  }
+  focusWedge();
+}
+
+$('torchBtn').addEventListener('click', () => S.scanner && S.scanner.toggleFlash());
+$('stopBtn').addEventListener('click', () => {
+  if (S.queue.length && !window.confirm('아직 전송되지 않은 기록이 ' + S.queue.length + '건 있습니다. 종료해도 기기에 보관되며 다음 실행 때 전송됩니다. 종료할까요?')) return;
+  S.scanner && S.scanner.stop();
+  document.body.classList.remove('scanning');
+});
+
+// ---------- QR 판정 (휴대폰 안에서 즉시 처리) ----------
+async function onCode(raw) {
+  const text = String(raw || '').trim();
+  const parts = text.split('.');
+  if (parts.length !== 4) return showOnce('?' + text, 'bad', '출석 QR이 아닙니다', '알림톡으로 받은 출석 QR을 보여 주세요.');
+  const [r, o, ts36, sig] = parts;
+  const now = Date.now();
+  const last = S.recent.get(o);
+  if (last && now - last < 3000) return;  // 같은 사람 3초 내 재인식 무시
+  S.recent.set(o, now);
+
+  if (r !== S.round) return show('bad', '다른 회차 QR', r + '차 QR입니다. 오늘은 ' + S.round + '차입니다.');
+  const k = (await hmac(S.secret, 'k:' + r + ':' + o)).slice(0, 16);
+  const expect = (await hmac(k, r + '.' + o + '.' + ts36)).slice(0, 10);
+  if (expect !== sig) return show('bad', '확인할 수 없는 QR', '위조되었거나 손상된 QR입니다.');
+
+  const age = now / 1000 - parseInt(ts36, 36);
+  const p = S.roster.get(o);
+  const who = p ? p.name : '';
+  if (age > S.valid + S.grace) return show('bad', '만료된 QR' + (who ? ' · ' + who : ''), '캡처 화면은 사용할 수 없습니다.\n알림톡 링크를 다시 열어 새 QR을 보여 주세요.');
+  if (age < -S.future) return show('bad', '휴대폰 시각 오류' + (who ? ' · ' + who : ''), '휴대폰 시간을 자동 설정으로 바꾼 뒤 다시 열어 주세요.');
+
+  if (p && p.att) return show('dup', who + ' · 이미 출석', p.att + ' 출석 처리됨');
+
+  if (p) p.att = hhmmss(new Date(now));
+  S.queue.push({ id: uid(), p: text, o, at: now });
+  persistQueue();
+  show('ok', who || '출석 확인', who ? '출석 완료 ' + hhmmss(new Date(now)) : '명단 새로고침 후 이름 표시');
+  updateCounts();
+  flush();
+}
+
+const onceMap = new Map();
+function showOnce(key, type, main, sub) {
+  const now = Date.now();
+  if (onceMap.get(key) && now - onceMap.get(key) < 3000) return;
+  onceMap.set(key, now);
+  show(type, main, sub);
+}
+
+// ---------- 시트 기록 (뒤에서 일괄 전송) ----------
+const FAIL_TEXT = { EXPIRED: '만료된 QR', SIG: '서명 불일치', BAD: '형식 오류', WRONG_ROUND: '다른 회차', CLOCK: '시각 오류', NOT_FOUND: '명단에 없음' };
+
+async function flush() {
+  if (S.inflight || !S.queue.length) return;
+  S.inflight = true; updateCounts();
+  const batch = S.queue.slice(0, 40);
+  try {
+    const res = await api('checkin', {
+      pin: S.pin, dev: S.dev,
+      items: batch.map((x) => ({ id: x.id, p: x.p, o: x.o, manual: !!x.manual, at: x.at, dev: S.dev }))
+    }, 25000);
+    if (res.ok) {
+      const ids = new Set(batch.map((b) => b.id));
+      S.queue = S.queue.filter((q) => !ids.has(q.id));
+      persistQueue();
+      res.results.forEach((r) => {
+        if (r.ok) {
+          const p = S.roster.get(String(r.o));
+          if (p) p.att = r.time; else S.roster.set(String(r.o), { name: r.name, att: r.time });
+        } else {
+          const src = batch.find((b) => b.id === r.id);
+          const p = src && S.roster.get(src.o);
+          if (p && !src.manual) p.att = '';
+          addFail((p ? p.name : (src && src.o) || '') + ' · ' + (FAIL_TEXT[r.code] || r.code));
+        }
+      });
+      applyAtt(res.att);
+    } else if (res.code === 'PIN' || res.code === 'PIN_LOCK') {
+      show('bad', 'PIN 오류', res.msg);
+    }
+  } catch (e) {
+    // 네트워크 오류: 대기열 유지 후 재시도
+  } finally {
+    S.inflight = false;
+    updateCounts();
+  }
+}
+setInterval(flush, 1000);
+
+function applyAtt(att) {
+  if (!att) return;
+  Object.keys(att).forEach((o) => { const p = S.roster.get(o); if (p) p.att = att[o]; });
+  updateCounts();
+}
+
+// 다른 스캐너 기기에서 처리한 출석 반영
+setInterval(async () => {
+  if (!document.body.classList.contains('scanning') || S.inflight) return;
+  try { const res = await api('staffSync', { pin: S.pin }); if (res.ok && String(res.round) === S.round) applyAtt(res.att); } catch (e) {}
+}, 15000);
+
+function addFail(t) {
+  S.fails.unshift(hhmmss() + ' ' + t);
+  $('faillog').innerHTML = S.fails.slice(0, 30).map(esc).join('<br>');
+}
+
+// ---------- 2D 바코드 스캐너(키보드 입력 방식) ----------
+// 입력칸 없이 화면 전체에서 키 입력을 받아, Enter가 들어오면 QR 내용으로 처리 (휴대폰 자판이 뜨지 않음)
+let wedgeBuf = '', wedgeLast = 0;
+document.addEventListener('keydown', (e) => {
+  if (!document.body.classList.contains('scanning') || $('manualPanel').classList.contains('show')) return;
+  const now = Date.now();
+  if (now - wedgeLast > 300) wedgeBuf = '';
+  wedgeLast = now;
+  if (e.key === 'Enter') {
+    const v = wedgeBuf; wedgeBuf = '';
+    if (v.trim()) onCode(v);
+    e.preventDefault();
+  } else if (e.key && e.key.length === 1) {
+    wedgeBuf += e.key;
+  }
+});
+function focusWedge() {}
+
+// ---------- 수동 출석 ----------
+$('manualBtn').addEventListener('click', () => { $('manualPanel').classList.add('show'); $('search').value = ''; renderList(); $('search').focus(); });
+$('closeManual').addEventListener('click', () => { $('manualPanel').classList.remove('show'); focusWedge(); });
+$('search').addEventListener('input', renderList);
+
+function renderList() {
+  const q = $('search').value.replace(/\s/g, '');
+  const rows = [];
+  S.roster.forEach((p, o) => { if (!q || (p.name || '').includes(q)) rows.push([o, p]); });
+  rows.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'ko'));
+  $('list').innerHTML = rows.slice(0, 120).map(([o, p]) =>
+    '<div class="person' + (p.att ? ' done' : '') + '"><div><div class="nm">' + esc(p.name) + '</div>' +
+    '<div class="st">' + esc(p.birth || '') + ' · ' + esc(p.status || '') + (p.att ? ' · 출석 ' + esc(p.att) : ' · 미출석') + '</div></div>' +
+    (p.att ? '<button disabled>출석됨</button>' : '<button data-o="' + esc(o) + '">출석 처리</button>') + '</div>'
+  ).join('') || '<p class="muted">검색 결과가 없습니다.</p>';
+  $('list').querySelectorAll('button[data-o]').forEach((b) => b.addEventListener('click', () => manual(b.dataset.o)));
+}
+
+function manual(o) {
+  const p = S.roster.get(o);
+  if (!p || p.att) return;
+  if (!window.confirm(p.name + ' (' + (p.birth || '') + ') 님을 수동 출석 처리할까요?')) return;
+  const now = Date.now();
+  p.att = hhmmss(new Date(now));
+  S.queue.push({ id: uid(), o, manual: true, at: now });
+  persistQueue();
+  renderList(); updateCounts(); flush();
+}
+
+updateCounts();
+</script>
+</body>
+</html>

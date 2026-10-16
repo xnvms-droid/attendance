@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>출석 QR</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  body { background: #fff; color: #111; }
+  .wrap { max-width: 460px; text-align: center; padding-top: 12px; }
+  .org { font-size: 13px; color: #555; }
+  .who { font-size: 22px; font-weight: 800; margin: 2px 0 0; }
+  .round { font-size: 14px; color: #555; margin-bottom: 8px; }
+  .qr-box { position: relative; display: inline-block; padding: 10px; border-radius: 18px; border: 6px solid #d11a2a; animation: pulse 1s ease-in-out infinite; background: #fff; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(209,26,42,.55); } 50% { box-shadow: 0 0 0 10px rgba(209,26,42,0); } }
+  canvas#qr { display: block; width: min(76vw, 300px); height: min(76vw, 300px); image-rendering: pixelated; }
+  .timer-label { margin-top: 14px; font-size: 14px; font-weight: 700; color: #d11a2a; letter-spacing: .5px; }
+  .timer { font-size: 64px; font-weight: 900; color: #d11a2a; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .timer.low { animation: blink .5s step-end infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .bar { height: 12px; background: #fde2e4; border-radius: 6px; overflow: hidden; margin: 8px 6px 0; }
+  .bar > i { display: block; height: 100%; background: #d11a2a; width: 100%; }
+  .clock { margin-top: 10px; font-size: 15px; color: #333; font-variant-numeric: tabular-nums; }
+  .clock b { font-size: 18px; }
+  .runner { position: relative; height: 6px; margin: 10px 6px 0; background: #eee; border-radius: 3px; overflow: hidden; }
+  .runner > i { position: absolute; top: 0; left: -30%; width: 30%; height: 100%; background: #d11a2a; animation: run 1.4s linear infinite; }
+  @keyframes run { to { left: 100%; } }
+  .notice-red { margin-top: 14px; text-align: left; line-height: 1.55; }
+  .err { margin-top: 40px; font-size: 16px; color: #d11a2a; font-weight: 700; }
+  .btn { margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="org" id="org"></div>
+  <div class="who" id="who"></div>
+  <div class="round" id="round"></div>
+
+  <div class="qr-box"><canvas id="qr" width="300" height="300" aria-label="출석 QR 코드"></canvas></div>
+
+  <div class="timer-label">QR 유효시간</div>
+  <div class="timer" id="timer">05:00</div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="runner"><i></i></div>
+  <div class="clock">현재 시각 <b id="clock">--:--:--</b></div>
+
+  <div class="notice-red">
+    · 입구 직원에게 <u>이 화면을 그대로</u> 보여 주세요.<br>
+    · 캡처(스크린샷)한 화면은 유효시간이 지나면 인식되지 않습니다.<br>
+    · 시간이 끝나면 새 QR이 자동으로 만들어집니다.<br>
+    · 화면 밝기를 높이면 더 빨리 인식됩니다.
+  </div>
+  <button class="btn secondary" id="renew" type="button">새 QR 만들기</button>
+</div>
+
+<script src="config.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+  var VALID = Number(APP.CFG.QR_VALID_SEC) || 300;
+  var q = new URLSearchParams(location.search);
+  var r = q.get('r'), o = q.get('o'), k = q.get('k'), n = q.get('n') || '';
+  var app = document.getElementById('app');
+
+  if (!r || !o || !k || !window.crypto || !crypto.subtle) {
+    app.innerHTML = '<div class="err">QR을 표시할 수 없습니다.<br>알림톡의 링크를 다시 눌러 주세요.</div>' +
+      (!window.crypto || !crypto.subtle ? '<p class="muted">브라우저가 지원되지 않습니다. 크롬·사파리·삼성인터넷에서 열어 주세요.</p>' : '');
+    return;
+  }
+
+  document.getElementById('org').textContent = (APP.CFG.ORG_NAME || '') + ' 보수교육 출석 확인';
+  document.getElementById('who').textContent = n ? n + ' 님' : '수강생 본인용';
+  document.getElementById('round').textContent = '오프라인 ' + r + '차';
+
+  var canvas = document.getElementById('qr');
+  var ctx = canvas.getContext('2d');
+  var issuedAt = 0;
+
+  function draw(text) {
+    var qr = qrcode(0, 'L');      // 짧은 내용 + 오류복원 L → 칸이 큰 QR → 빠른 인식
+    qr.addData(text);
+    qr.make();
+    var count = qr.getModuleCount();
+    var quiet = 4;
+    var total = count + quiet * 2;
+    var size = 600;
+    canvas.width = size; canvas.height = size;
+    var cell = size / total;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = '#000';
+    for (var y = 0; y < count; y++) {
+      for (var x = 0; x < count; x++) {
+        if (qr.isDark(y, x)) {
+          ctx.fillRect(Math.floor((x + quiet) * cell), Math.floor((y + quiet) * cell), Math.ceil(cell), Math.ceil(cell));
+        }
+      }
+    }
+  }
+
+  async function issue() {
+    var ts = Math.floor(Date.now() / 1000);
+    var ts36 = ts.toString(36);
+    var sig = (await APP.hmac(k, r + '.' + o + '.' + ts36)).slice(0, 10);
+    draw(r + '.' + o + '.' + ts36 + '.' + sig);
+    issuedAt = ts;
+  }
+
+  var timerEl = document.getElementById('timer');
+  var barEl = document.getElementById('bar');
+  var clockEl = document.getElementById('clock');
+  var busy = false;
+
+  function tick() {
+    var now = Date.now() / 1000;
+    var remain = Math.max(0, VALID - (now - issuedAt));
+    var s = Math.ceil(remain);
+    timerEl.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    timerEl.classList.toggle('low', s <= 30);
+    barEl.style.width = (remain / VALID * 100).toFixed(2) + '%';
+    clockEl.textContent = APP.hhmmss();
+    if (remain <= 0 && !busy) {
+      busy = true;
+      issue().finally(function () { busy = false; });
+    }
+  }
+
+  document.getElementById('renew').addEventListener('click', function () { issue(); });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && Date.now() / 1000 - issuedAt > VALID - 5) issue();
+  });
+
+  issue().then(function () {
+    tick();
+    setInterval(tick, 200);
+  });
+})();
+</script>
+</body>
+</html>
