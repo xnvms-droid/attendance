@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,31 +7,71 @@
 <title>좌석 현황판</title>
 <link rel="stylesheet" href="assets/style.css">
 <style>
-  .wrap { max-width: 1100px; }
-  :root { --seat-w: minmax(44px, 1fr); --aisle: 16px; --door-w: 26px; }
-  .seat-grid { grid-auto-rows: minmax(64px, auto); gap: 4px; }
-  .seat .no { font-size: 11px; }
-  .seat .nm { font-size: 15px; }
-  .seat .bd { font-size: 11px; color: var(--muted); }
-  .seat.mine .bd { color: #dbe7ff; }
-  .door { font-size: 15px; }
-  .seat.filled { background: #e6f0ff; border-color: var(--primary); }
-  .stats { display: flex; gap: 10px; flex-wrap: wrap; }
-  .stat { flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
-  .stat b { font-size: 26px; display: block; }
-  .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
-  .tools .btn { width: auto; margin: 0; padding: 10px 14px; font-size: 14px; }
-  .print-title { display: none; }
+  html, body { height: 100%; }
+  body { background: #f4f5f7; color: #1d2129; }
+  :root { --seat-w: minmax(30px, 1fr); --aisle: 1.6vw; --door-w: 2vw; --seat-taken: #c9ced6; --seat-free: #ffffff; --line: #d9dce1; --muted: #6b7280; --text: #1d2129; --bg: #f4f5f7; --card: #fff; }
+
+  /* ---------- 빔스크린 레이아웃: 왼쪽 배치도 · 오른쪽 좌석등록 QR ---------- */
+  .beam { display: grid; grid-template-columns: 1fr minmax(300px, 27vw); gap: 1.6vw; height: 100vh; padding: 1.6vh 1.6vw; }
+  .beam-map { background: #fff; border-radius: 16px; padding: 1.6vh 1.4vw; display: flex; flex-direction: column; min-height: 0; }
+  .beam-head { display: flex; align-items: baseline; gap: 1.2vw; margin-bottom: 1vh; flex-wrap: wrap; }
+  .beam-head h1 { margin: 0; font-size: clamp(20px, 3.2vh, 40px); }
+  .beam-head .stat { font-size: clamp(14px, 2.2vh, 26px); color: #444; }
+  .beam-head .stat b { font-size: clamp(18px, 3vh, 34px); color: #1f5fbf; }
+  .map-holder { flex: 1; min-height: 0; }
+  .room { min-width: 0; }
+  .room-front { font-size: clamp(11px, 1.7vh, 20px); margin-bottom: 1.2vh; }
+  .seat-grid { gap: .45vh .3vw; grid-auto-rows: calc((100vh - 3.2vh - 3.2vh - 7vh - 4.5vh - 6vh) / 9); }
+  .back-row { gap: .3vw; }
+  .seat { border-radius: 8px; }
+  .seat .no { font-size: clamp(8px, 1.25vh, 14px); }
+  .seat .nm { font-size: clamp(10px, 2.1vh, 24px); }
+  .seat .bd { font-size: clamp(8px, 1.3vh, 14px); color: var(--muted); }
+  .seat.filled { background: #dbe8ff; border-color: #1f5fbf; }
+  .seat.moving { outline: 4px solid #c27c0e; outline-offset: 1px; }
+  .door { font-size: clamp(11px, 1.8vh, 20px); }
+  .staff-desk { margin-top: 1.2vh; font-size: clamp(11px, 1.6vh, 18px); padding: .5vh 0; }
+
+  .beam-side { background: #1f5fbf; color: #fff; border-radius: 16px; padding: 2.4vh 1.6vw; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 0; }
+  .beam-side .ttl { font-size: clamp(22px, 4.2vh, 52px); font-weight: 900; letter-spacing: 2px; }
+  .beam-side .qrwrap { background: #fff; border-radius: 16px; padding: 1.2vh; margin: 2vh 0; width: min(100%, 44vh); }
+  .beam-side canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
+  .beam-side ol { text-align: left; margin: 0; padding-left: 1.4em; font-size: clamp(14px, 2.4vh, 28px); line-height: 1.55; font-weight: 700; }
+  .beam-side ol small { display: block; font-weight: 500; font-size: .75em; opacity: .9; }
+  .beam-side .clock { margin-top: auto; font-size: clamp(18px, 3.4vh, 40px); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .beam-side .upd { font-size: clamp(11px, 1.4vh, 16px); opacity: .8; }
+
+  /* ---------- 조작 버튼 (전체화면에서는 숨김, 마우스를 올리면 표시) ---------- */
+  .tools { position: fixed; left: 2.4vw; bottom: 2.2vh; display: flex; gap: 6px; z-index: 30; flex-wrap: wrap; }
+  .tools button { border: 0; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 700; background: #1d2129; color: #fff; cursor: pointer; opacity: .9; }
+  .tools button.light { background: #fff; color: #1d2129; border: 1px solid #c9ced6; }
+  .tools .mode { background: #c27c0e; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 700; }
+  body.fs .tools { opacity: 0; transition: opacity .3s; }
+  body.fs .tools:hover { opacity: 1; }
+  .move-banner { position: fixed; left: 50%; top: 1.2vh; transform: translateX(-50%); background: #c27c0e; color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 800; z-index: 31; display: none; }
+  .move-banner.show { display: block; }
+  .move-banner button { margin-left: 10px; border: 0; border-radius: 8px; padding: 6px 10px; font-weight: 700; }
+
   .person { display: flex; justify-content: space-between; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--line); }
-  .person button { padding: 8px 12px; border: 0; border-radius: 8px; background: var(--primary); color: #fff; font-weight: 700; }
+  .person button { padding: 8px 12px; border: 0; border-radius: 8px; background: #1f5fbf; color: #fff; font-weight: 700; }
   #pickList { max-height: 46vh; overflow: auto; }
+  .print-title { display: none; }
+
+  /* 좁은 화면(노트북 창을 줄였을 때·태블릿) */
+  @media (max-width: 900px), (max-aspect-ratio: 1/1) {
+    .beam { grid-template-columns: 1fr; height: auto; }
+    .seat-grid { grid-auto-rows: 54px; }
+    .beam-side .qrwrap { width: min(80%, 320px); }
+  }
+
+  /* ---------- A3 세로 인쇄 (종이 배치도와 같은 모양) ---------- */
   @media print {
     @page { size: A3 portrait; margin: 10mm; }
     body { background: #fff; color: #000; }
-    .no-print, .tools, .stats, .legend, .toast, .sheet-bg { display: none !important; }
+    .beam { display: block; height: auto; padding: 0; }
+    .beam-side, .tools, .beam-head, .toast, .sheet-bg, .move-banner { display: none !important; }
+    .beam-map { padding: 0; }
     .print-title { display: block; text-align: center; font-size: 28pt; font-weight: 900; letter-spacing: 12px; margin-bottom: 6mm; }
-    .wrap { max-width: none; padding: 0; }
-    .card { border: 0; padding: 0; }
     :root { --seat-w: 1fr; --aisle: 5mm; --door-w: 9mm; }
     .seat-grid { grid-auto-rows: 30mm; gap: 0; }
     .back-row { gap: 0; }
@@ -40,31 +80,43 @@
     .seat .nm { font-size: 13pt; text-align: center; }
     .seat .bd { font-size: 10pt; text-align: center; color: #000; }
     .door { font-size: 14pt; }
-    .room-front { font-size: 11pt; }
-    .staff-desk { font-size: 11pt; }
+    .room-front, .staff-desk { font-size: 11pt; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="print-title">강 의 실 &nbsp; 배 치 도</div>
-  <h1 class="no-print">좌석 현황판 <span class="muted" id="roundLbl"></span></h1>
-  <div class="stats no-print">
-    <div class="stat">명단<b id="sTotal">0</b></div>
-    <div class="stat">출석<b id="sAtt">0</b></div>
-    <div class="stat">좌석지정<b id="sSeat">0</b></div>
-    <div class="stat">갱신<b id="sUpd" style="font-size:18px">-</b></div>
-  </div>
-  <div class="tools">
-    <input id="pin" type="password" inputmode="numeric" placeholder="직원 PIN (실명 보기)" style="max-width:220px">
-    <button class="btn" id="pinBtn" type="button">직원 모드</button>
-    <button class="btn secondary" id="printBtn" type="button">배치도 인쇄(A3)</button>
-    <span class="muted" id="modeLbl">공개 모드: 이름 일부 가림</span>
-  </div>
-  <div class="card">
-    <div class="map-scroll" id="map"></div>
-  </div>
+<div class="beam">
+  <main class="beam-map">
+    <div class="print-title">강 의 실 &nbsp; 배 치 도</div>
+    <div class="beam-head">
+      <h1 id="title">좌석 현황</h1>
+      <span class="stat">출석 <b id="sAtt">0</b>/<span id="sTotal">0</span></span>
+      <span class="stat">좌석지정 <b id="sSeat">0</b></span>
+    </div>
+    <div class="map-holder" id="map"></div>
+  </main>
+
+  <aside class="beam-side">
+    <div class="ttl">좌석 등록</div>
+    <div class="qrwrap"><canvas id="seatQr" width="500" height="500" aria-label="좌석 등록 QR"></canvas></div>
+    <ol>
+      <li>자리에 앉으신 뒤</li>
+      <li>휴대폰 카메라로 QR 촬영</li>
+      <li>이름 · 생년월일 6자리 입력</li>
+      <li>앉은 좌석 누르기<small>잘못 고른 경우 [좌석 변경하기]</small></li>
+    </ol>
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="upd">자동 갱신 <span id="sUpd">-</span></div>
+  </aside>
 </div>
+
+<div class="tools" id="tools">
+  <span class="mode" id="modeLbl" hidden>직원 수정 모드</span>
+  <button class="light" id="nameBtn" type="button" hidden>실명 보기</button>
+  <button class="light" id="printBtn" type="button" hidden>배치도 인쇄(A3)</button>
+  <button id="fsBtn" type="button">전체화면</button>
+</div>
+<div class="move-banner" id="moveBanner"><span id="moveText"></span><button type="button" id="moveCancel">이동 취소</button></div>
 
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet">
@@ -77,48 +129,73 @@
 <div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
+<script src="vendor/qrcode.js"></script>
 <script src="assets/common.js"></script>
 <script>
 (function () {
   'use strict';
-  var api = APP.api, store = APP.store, esc = APP.esc, $ = function (id) { return document.getElementById(id); };
-  var pin = store.get('board_pin') || '';
-  var admin = false;
+  var api = APP.api, esc = APP.esc, $ = function (id) { return document.getElementById(id); };
+  var key = APP.staffKey();              // 직원용 링크로 연 경우에만 수정 기능
+  var admin = !!key;
+  var showReal = false;                  // 빔에 실명 노출 방지: 기본은 이름 일부 가림
   var data = { seats: {} };
   var sheetSeat = null;
+  var moving = null;                     // {o, name, from}
 
   function toast(t) {
     var el = $('toast'); el.textContent = t; el.classList.add('show');
     clearTimeout(toast.tm); toast.tm = setTimeout(function () { el.classList.remove('show'); }, 2600);
   }
 
+  // ---------- 좌석등록 QR (seat.html) ----------
+  (function drawQr() {
+    var url = new URL('seat.html', location.href).href;
+    var qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    var c = $('seatQr'), ctx = c.getContext('2d');
+    var n = qr.getModuleCount(), q = 3, cell = c.width / (n + q * 2);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.fillStyle = '#000';
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+      if (qr.isDark(y, x)) ctx.fillRect(Math.floor((x + q) * cell), Math.floor((y + q) * cell), Math.ceil(cell), Math.ceil(cell));
+    }
+  })();
+
+  // ---------- 배치도 ----------
   APP.renderSeatMap($('map'), { onSeat: onSeat });
-  // 이름·생년월일 칸 추가 (인쇄 시 종이 배치도와 같은 모양)
   $('map').querySelectorAll('.seat').forEach(function (b) {
     var bd = document.createElement('span'); bd.className = 'bd'; b.appendChild(bd);
   });
 
-  function paint() {
+  function mask(name) {
+    var s = String(name || '');
+    if (s.length <= 1) return s;
+    if (s.length === 2) return s.charAt(0) + '*';
+    return s.charAt(0) + new Array(s.length - 1).join('*') + s.charAt(s.length - 1);
+  }
+
+  function paint(forceReal) {
+    var real = forceReal || showReal;
     APP.updateSeats($('map'), function (id, b) {
       var v = data.seats[id];
-      var name = !v ? '' : (typeof v === 'string' ? v : v.name);
+      var name = !v ? '' : (typeof v === 'string' ? v : (real ? v.name : mask(v.name)));
       b.classList.toggle('filled', !!v);
+      b.classList.toggle('moving', !!moving && moving.from === id);
       b.querySelector('.nm').textContent = name;
-      b.querySelector('.bd').textContent = v && typeof v === 'object' ? v.birth : '';
+      b.querySelector('.bd').textContent = v && typeof v === 'object' && real ? v.birth : '';
     });
     $('sTotal').textContent = data.total || 0;
     $('sAtt').textContent = data.attended || 0;
     $('sSeat').textContent = data.seated || 0;
-    $('sUpd').textContent = APP.hhmmss();
-    $('roundLbl').textContent = data.round ? '· 오프라인 ' + data.round + '차' : '';
-    $('modeLbl').textContent = admin ? '직원 모드: 실명 표시 · 좌석을 누르면 해제/배정' : '공개 모드: 이름 일부 가림';
+    $('sUpd').textContent = data.t || '-';
+    $('title').textContent = data.round ? '오프라인 ' + data.round + '차 좌석 현황' : '좌석 현황';
+    $('modeLbl').hidden = !admin; $('nameBtn').hidden = !admin; $('printBtn').hidden = !admin;
+    $('nameBtn').textContent = showReal ? '이름 가리기' : '실명 보기';
   }
 
   async function refresh() {
     try {
-      var res = admin ? await api('adminState', { pin: pin }) : await api('seatState', {});
+      var res = admin ? await api('adminState', { key: key }) : await api('seatState', {});
       if (!res.ok) {
-        if (admin && (res.code === 'PIN' || res.code === 'PIN_LOCK')) { admin = false; toast(res.msg); }
+        if (admin && (res.code === 'KEY' || res.code === 'KEY_LOCK')) { admin = false; toast(res.msg); }
         return;
       }
       data = res;
@@ -129,63 +206,93 @@
   function loop() {
     setTimeout(function () { if (!document.hidden) refresh().finally(loop); else loop(); }, 3000);
   }
+  setInterval(function () { $('clock').textContent = APP.hhmmss(); }, 500);
 
-  $('pin').value = pin;
-  $('pinBtn').addEventListener('click', async function () {
-    pin = $('pin').value.trim();
-    store.set('board_pin', pin);
-    admin = true;
-    await refresh();
-    if (admin) toast('직원 모드로 전환했습니다.');
+  // ---------- 전체화면 ----------
+  $('fsBtn').addEventListener('click', function () {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    else toast('이 브라우저는 전체화면을 지원하지 않습니다. F11 키를 눌러 주세요.');
   });
+  document.addEventListener('fullscreenchange', function () {
+    var fs = !!document.fullscreenElement;
+    document.body.classList.toggle('fs', fs);
+    $('fsBtn').textContent = fs ? '전체화면 종료' : '전체화면';
+  });
+
+  $('nameBtn').addEventListener('click', function () { showReal = !showReal; paint(); });
   $('printBtn').addEventListener('click', function () {
-    if (!admin) toast('실명 배치도는 직원 모드에서 인쇄됩니다.');
-    setTimeout(function () { window.print(); }, admin ? 0 : 800);
+    paint(true);
+    setTimeout(function () { window.print(); paint(); }, 100);
   });
 
-  // ---------- 직원 모드: 좌석 관리 ----------
+  // ---------- 직원 수정 모드: 좌석 해제 · 이동 · 배정 ----------
   function onSeat(id) {
     if (!admin) return;
-    sheetSeat = id;
     var v = data.seats[id];
+    if (moving) {
+      if (v) { toast('빈 좌석을 눌러 주세요.'); return; }
+      var m = moving; moving = null; $('moveBanner').classList.remove('show');
+      seatOp({ op: 'assign', seat: id, o: m.o }, m.name + ' → ' + APP.seatLabel(id) + ' 이동했습니다.');
+      return;
+    }
+    sheetSeat = id;
     $('sheetSub').textContent = APP.seatLabel(id);
     if (v) {
       $('sheetTitle').textContent = v.name + ' (' + v.birth + ')';
       $('sheetBody').innerHTML = '<p class="muted">출석 ' + esc(v.att || '기록 없음') + '</p>' +
-        '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">이 좌석 해제</button>';
-      $('clearBtn').addEventListener('click', function () { seatOp({ op: 'clear', seat: id }); });
+        '<div class="row2"><button class="btn secondary" id="moveBtn" type="button">다른 좌석으로 이동</button>' +
+        '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">좌석 해제</button></div>';
+      $('moveBtn').addEventListener('click', function () {
+        moving = { o: v.o, name: v.name, from: id };
+        $('moveText').textContent = v.name + ' 님을 옮길 빈 좌석을 누르세요';
+        $('moveBanner').classList.add('show');
+        $('sheetBg').classList.remove('show');
+        paint();
+      });
+      $('clearBtn').addEventListener('click', function () {
+        if (window.confirm(v.name + ' 님의 ' + APP.seatLabel(id) + ' 좌석을 해제할까요?')) seatOp({ op: 'clear', seat: id }, '좌석을 해제했습니다.');
+      });
     } else {
       $('sheetTitle').textContent = '빈 좌석 · 직접 배정';
-      $('sheetBody').innerHTML = '<input id="q" type="search" placeholder="이름 검색 (출석자 중 좌석 미지정)"><div id="pickList"></div>';
+      $('sheetBody').innerHTML = '<input id="q" type="search" placeholder="이름 검색"><div id="pickList"></div>';
       $('q').addEventListener('input', renderPick);
       renderPick();
     }
     $('sheetBg').classList.add('show');
   }
 
+  $('moveCancel').addEventListener('click', function () { moving = null; $('moveBanner').classList.remove('show'); paint(); });
+
   function renderPick() {
     var q = ($('q').value || '').replace(/\s/g, '');
-    var list = (data.people || []).filter(function (p) { return !p[4] && (!q || p[1].indexOf(q) >= 0); });
-    list.sort(function (a, b) { return (b[3] ? 1 : 0) - (a[3] ? 1 : 0) || a[1].localeCompare(b[1], 'ko'); });
-    $('pickList').innerHTML = list.slice(0, 80).map(function (p) {
-      return '<div class="person"><div><b>' + esc(p[1]) + '</b> <span class="muted">' + esc(p[2]) + (p[3] ? ' · 출석 ' + esc(p[3]) : ' · 미출석') + '</span></div>' +
-        '<button type="button" data-o="' + esc(p[0]) + '">배정</button></div>';
+    var list = (data.people || []).filter(function (p) { return !q || p[1].indexOf(q) >= 0; });
+    list.sort(function (a, b) {
+      return (a[4] ? 1 : 0) - (b[4] ? 1 : 0) || (b[3] ? 1 : 0) - (a[3] ? 1 : 0) || a[1].localeCompare(b[1], 'ko');
+    });
+    $('pickList').innerHTML = list.slice(0, 100).map(function (p) {
+      var st = (p[3] ? '출석 ' + p[3] : '미출석') + (p[4] ? ' · 현재 ' + APP.seatLabel(p[4]) : '');
+      return '<div class="person"><div><b>' + esc(p[1]) + '</b> <span class="muted">' + esc(p[2]) + ' · ' + esc(st) + '</span></div>' +
+        '<button type="button" data-o="' + esc(p[0]) + '" data-n="' + esc(p[1]) + '">' + (p[4] ? '이리로 이동' : '배정') + '</button></div>';
     }).join('') || '<p class="muted">대상이 없습니다.</p>';
     $('pickList').querySelectorAll('button[data-o]').forEach(function (b) {
-      b.addEventListener('click', function () { seatOp({ op: 'assign', seat: sheetSeat, o: b.dataset.o }); });
+      b.addEventListener('click', function () {
+        seatOp({ op: 'assign', seat: sheetSeat, o: b.dataset.o }, b.dataset.n + ' → ' + APP.seatLabel(sheetSeat) + ' 배정했습니다.');
+      });
     });
   }
 
-  async function seatOp(body) {
+  async function seatOp(body, okMsg) {
     try {
-      var res = await api('adminSeat', Object.assign({ pin: pin }, body));
-      toast(res.ok ? '처리했습니다.' : (res.msg || '처리하지 못했습니다.'));
-    } catch (e) { toast('연결 오류'); }
+      var res = await api('adminSeat', Object.assign({ key: key }, body));
+      toast(res.ok ? okMsg : (res.msg || '처리하지 못했습니다.'));
+    } catch (e) { toast('연결 오류. 다시 시도해 주세요.'); }
     $('sheetBg').classList.remove('show');
     refresh();
   }
   $('closeSheet').addEventListener('click', function () { $('sheetBg').classList.remove('show'); });
 
+  paint();
   refresh().finally(loop);
 })();
 </script>

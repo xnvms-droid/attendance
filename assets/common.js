@@ -51,6 +51,20 @@
     setJSON: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   };
 
+  // ---------- 직원키 (직원용 링크 ?k=... 로 한 번 열면 기기에 저장, 주소창에서는 지움) ----------
+  function staffKey() {
+    var q = new URLSearchParams(location.search);
+    var k = q.get('k');
+    if (k) {
+      store.set('staff_key', k);
+      q.delete('k');
+      var rest = q.toString();
+      try { history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash); } catch (e) {}
+      return k;
+    }
+    return store.get('staff_key') || '';
+  }
+
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function hhmmss(d) { d = d || new Date(); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()); }
   function esc(s) {
@@ -154,7 +168,7 @@
   }
 
   window.APP = {
-    CFG: CFG, api: api, hmac: hmac, store: store, hhmmss: hhmmss, esc: esc,
+    CFG: CFG, api: api, hmac: hmac, store: store, staffKey: staffKey, hhmmss: hhmmss, esc: esc,
     seatLabel: seatLabel, renderSeatMap: renderSeatMap, updateSeats: updateSeats
   };
 })();

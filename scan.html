@@ -4,93 +4,100 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="robots" content="noindex">
+<meta name="theme-color" content="#000000">
 <title>출석 스캐너</title>
 <link rel="stylesheet" href="assets/style.css">
 <style>
-  body.scanning { background: #000; overflow: hidden; }
+  html, body { height: 100%; }
+  body { background: #000; color: #fff; overflow: hidden; }
+  /* ① 시작 화면: 화면 전체가 버튼 */
+  #startView { position: fixed; inset: 0; display: flex; flex-direction: column; padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); gap: 12px; }
+  #startView .info { text-align: center; font-size: 15px; color: #cfd3da; }
+  #startView .info b { color: #fff; font-size: 20px; }
+  #startBtn {
+    flex: 1; border: 0; border-radius: 28px; background: #19c463; color: #fff; font-size: 44px; font-weight: 900;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer;
+  }
+  #startBtn small { font-size: 17px; font-weight: 600; opacity: .9; }
+  #startBtn:disabled { background: #3a3f47; }
+  #startMsg { text-align: center; font-size: 15px; min-height: 22px; color: #ffd166; }
+
+  /* ② 스캔 화면 */
   #scanView { position: fixed; inset: 0; display: none; }
   body.scanning #scanView { display: block; }
-  body.scanning #setupView { display: none; }
+  body.scanning #startView { display: none; }
   #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .top {
-    position: absolute; left: 0; right: 0; top: 0; padding: calc(8px + env(safe-area-inset-top)) 10px 8px;
-    background: rgba(0,0,0,.6); color: #fff; display: flex; align-items: center; gap: 8px; font-size: 14px; z-index: 5;
+    position: absolute; left: 0; right: 0; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px;
+    padding: calc(6px + env(safe-area-inset-top)) 10px 6px; background: rgba(0,0,0,.55); font-size: 14px;
   }
-  .top .count { font-size: 18px; font-weight: 800; }
+  .top .count { font-size: 22px; font-weight: 900; }
   .top .sp { flex: 1; }
-  .top button { background: #fff2; color: #fff; border: 1px solid #fff6; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  .top button { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 700; }
   .pending { font-size: 12px; opacity: .85; }
   .pending.warn { color: #ffd166; opacity: 1; font-weight: 700; }
-  .frame { position: absolute; inset: 0; border: 0 solid transparent; pointer-events: none; transition: border-width .08s; z-index: 4; }
-  .frame.ok { border: 14px solid #19c463; }
-  .frame.dup { border: 14px solid #ffb020; }
-  .frame.bad { border: 14px solid #ff3344; }
+  .guide { position: absolute; left: 50%; top: 50%; width: 72vmin; height: 72vmin; transform: translate(-50%, -50%); border: 3px dashed rgba(255,255,255,.7); border-radius: 24px; z-index: 3; pointer-events: none; }
+  .frame { position: absolute; inset: 0; border: 0 solid transparent; pointer-events: none; z-index: 4; }
+  .frame.ok { border: 18px solid #19c463; }
+  .frame.dup { border: 18px solid #ffb020; }
+  .frame.bad { border: 18px solid #ff3344; }
   .result {
-    position: absolute; left: 10px; right: 10px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 5;
-    border-radius: 16px; padding: 14px 16px; text-align: center; color: #fff; background: rgba(0,0,0,.65);
+    position: absolute; left: 10px; right: 10px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 5;
+    border-radius: 18px; padding: 16px; text-align: center; background: rgba(0,0,0,.6);
   }
-  .result .main { font-size: 30px; font-weight: 900; line-height: 1.2; }
-  .result .sub { font-size: 15px; margin-top: 2px; white-space: pre-line; }
+  .result .main { font-size: 34px; font-weight: 900; line-height: 1.2; }
+  .result .sub { font-size: 16px; margin-top: 4px; white-space: pre-line; }
   .result.ok { background: #138a4a; }
   .result.dup { background: #b9770e; }
   .result.bad { background: #c0182a; }
-  .panel { position: fixed; inset: 0; background: var(--bg); z-index: 20; display: none; overflow: auto; }
+
+  /* ③ 수동 출석·출석 취소 */
+  .panel { position: fixed; inset: 0; background: var(--bg); color: var(--text); z-index: 20; display: none; overflow: auto; }
   .panel.show { display: block; }
   .person { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-bottom: 1px solid var(--line); gap: 8px; }
-  .person .nm { font-weight: 700; font-size: 16px; }
+  .person .nm { font-weight: 700; font-size: 17px; }
   .person .st { font-size: 13px; color: var(--muted); }
-  .person button { padding: 8px 12px; border-radius: 8px; border: 0; background: var(--primary); color: #fff; font-weight: 700; }
-  .person.done button { background: var(--seat-taken); color: #333; }
-  #wedge { position: absolute; opacity: 0; width: 1px; height: 1px; left: -10px; }
+  .person button { padding: 10px 12px; border-radius: 10px; border: 0; font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .person .do { background: var(--primary); color: #fff; }
+  .person .undo { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
   .faillog { font-size: 13px; }
 </style>
 </head>
 <body>
-<!-- ① 시작 화면 -->
-<div class="wrap" id="setupView">
-  <h1>출석 스캐너 (직원용)</h1>
-  <div class="card">
-    <label for="pin">직원 PIN</label>
-    <input id="pin" type="password" inputmode="numeric" autocomplete="off">
-    <label for="dev">이 기기 이름 (예: 앞문1, 뒷문)</label>
-    <input id="dev" type="text" maxlength="10" placeholder="앞문1">
-    <button class="btn" id="startBtn" type="button">스캔 시작</button>
-    <div class="msg" id="setupMsg"></div>
-  </div>
-  <div class="card muted">
-    · 스캔 결과는 휴대폰에서 즉시 판정하고, 시트 기록은 뒤에서 자동 전송합니다.<br>
-    · 여러 대를 동시에 사용해도 됩니다. (앞문·뒷문 각 1대 이상 권장)<br>
-    · 화면 상단 '미전송'이 0이 되어야 시트 기록이 끝난 것입니다.<br>
-    · 2D 바코드 스캐너(키보드 입력 방식)를 연결해도 같은 화면에서 인식됩니다.
-  </div>
+<!-- ① 시작 -->
+<div id="startView">
+  <div class="info" id="info">명단을 불러오는 중입니다…</div>
+  <button id="startBtn" type="button" disabled>스캔 시작<small>누르면 카메라가 켜집니다</small></button>
+  <div id="startMsg"></div>
 </div>
 
-<!-- ② 스캔 화면 -->
+<!-- ② 스캔 -->
 <div id="scanView">
   <video id="video" playsinline muted></video>
+  <div class="guide"></div>
   <div class="frame" id="frame"></div>
   <div class="top">
     <div>
-      <div><span id="roundLbl"></span> · 출석 <span class="count" id="cnt">0</span>/<span id="tot">0</span></div>
+      <div><span id="roundLbl"></span> 출석 <span class="count" id="cnt">0</span>/<span id="tot">0</span></div>
       <div class="pending" id="pend">미전송 0</div>
     </div>
     <div class="sp"></div>
     <button id="torchBtn" type="button" hidden>조명</button>
-    <button id="manualBtn" type="button">수동출석</button>
-    <button id="stopBtn" type="button">종료</button>
+    <button id="manualBtn" type="button">수동·취소</button>
   </div>
   <div class="result" id="result"><div class="main">QR을 비춰 주세요</div><div class="sub" id="resultSub"></div></div>
 </div>
 
-<!-- ③ 수동 출석 -->
+<!-- ③ 수동 출석 · 출석 취소 -->
 <div class="panel" id="manualPanel">
   <div class="wrap">
-    <h1>수동 출석</h1>
+    <h1>수동 출석 · 출석 취소</h1>
+    <p class="muted" style="margin-top:-6px">휴대폰이 없는 분은 [출석 처리], 잘못 처리된 분은 [출석 취소]를 누르세요.</p>
     <input id="search" type="search" placeholder="이름 검색">
     <div id="list"></div>
     <h2 style="margin-top:18px">처리 실패 기록</h2>
     <div id="faillog" class="faillog muted">없음</div>
-    <button class="btn secondary" id="closeManual" type="button">스캔 화면으로</button>
+    <button class="btn" id="closeManual" type="button">스캔 화면으로 돌아가기</button>
   </div>
 </div>
 
@@ -102,34 +109,35 @@ import QrScanner from './vendor/qr-scanner.min.js';
 const { api, hmac, store, hhmmss, esc } = window.APP;
 const $ = (id) => document.getElementById(id);
 
+// 기기 구분용 이름 자동 생성 (예: 기기A7K)
+let dev = store.get('scan_dev');
+if (!dev) { dev = '기기' + Math.random().toString(36).slice(2, 5).toUpperCase(); store.set('scan_dev', dev); }
+
 const S = {
-  pin: store.get('scan_pin') || '',
-  dev: store.get('scan_dev') || '',
+  key: APP.staffKey(), dev,
   round: '', secret: '', valid: 300, grace: 15, future: 90,
   roster: new Map(),     // 주문번호 → {name, birth, att, seat, status}
   queue: store.getJSON('scan_queue') || [],
   inflight: false,
-  recent: new Map(),     // 같은 QR 연속 인식 방지
+  recent: new Map(),
   fails: [],
   scanner: null,
-  audio: null
+  audio: null,
+  ready: false
 };
-$('pin').value = S.pin;
-$('dev').value = S.dev;
 
 // ---------- 소리·진동 ----------
 function beep(type) {
   try {
-    if (!S.audio) return;
-    const plan = type === 'ok' ? [[1320, 0.09]] : type === 'dup' ? [[660, 0.08], [660, 0.08]] : [[220, 0.32]];
-    let t = S.audio.currentTime;
-    for (const [f, d] of plan) {
-      const o = S.audio.createOscillator(), g = S.audio.createGain();
-      o.frequency.value = f; o.type = 'square';
-      g.gain.value = 0.15;
-      o.connect(g); g.connect(S.audio.destination);
-      o.start(t); o.stop(t + d);
-      t += d + 0.05;
+    if (S.audio) {
+      const plan = type === 'ok' ? [[1320, 0.09]] : type === 'dup' ? [[660, 0.08], [660, 0.08]] : [[220, 0.32]];
+      let t = S.audio.currentTime;
+      for (const [f, d] of plan) {
+        const o = S.audio.createOscillator(), g = S.audio.createGain();
+        o.frequency.value = f; o.type = 'square'; g.gain.value = 0.15;
+        o.connect(g); g.connect(S.audio.destination);
+        o.start(t); o.stop(t + d); t += d + 0.05;
+      }
     }
   } catch (e) {}
   try { navigator.vibrate && navigator.vibrate(type === 'ok' ? 60 : type === 'dup' ? [40, 40, 40] : 300); } catch (e) {}
@@ -165,91 +173,79 @@ function updateCounts() {
 function persistQueue() { store.setJSON('scan_queue', S.queue); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
-// ---------- 시작 ----------
-async function loadInit() {
-  const res = await api('staffInit', { pin: S.pin }, 20000);
-  if (!res.ok) { const err = new Error(res.msg || '시작 정보를 받지 못했습니다.'); err.server = true; throw err; }
+function applyRoster(res) {
   S.round = String(res.round);
   S.secret = res.secret;
   S.valid = res.validSec; S.grace = res.graceSec; S.future = res.futureSec;
   S.roster.clear();
   res.roster.forEach(([o, name, birth, att, seat, status]) => S.roster.set(String(o), { name, birth, att, seat, status }));
-  // 이전에 보내지 못한 기록 반영
-  S.queue.forEach((q) => { const p = q.o && S.roster.get(q.o); if (p && !p.att) p.att = hhmmss(new Date(q.at)); });
-  store.setJSON('scan_cache', { round: S.round, secret: S.secret, valid: S.valid, grace: S.grace, future: S.future, roster: res.roster, title: res.title });
+  S.queue.forEach((q) => { const p = q.o && S.roster.get(q.o); if (p && !p.att && !q.undo) p.att = hhmmss(new Date(q.at)); });
   $('roundLbl').textContent = S.round + '차';
+  $('info').innerHTML = '<b>' + esc(res.title || ('오프라인 ' + S.round + '차')) + '</b><br>명단 ' + S.roster.size + '명';
 }
 
-function loadCache() {
-  const c = store.getJSON('scan_cache');
-  if (!c) return false;
-  S.round = c.round; S.secret = c.secret; S.valid = c.valid; S.grace = c.grace; S.future = c.future;
-  c.roster.forEach(([o, name, birth, att, seat, status]) => S.roster.set(String(o), { name, birth, att, seat, status }));
-  $('roundLbl').textContent = S.round + '차';
-  return true;
-}
-
-$('startBtn').addEventListener('click', async () => {
-  S.pin = $('pin').value.trim();
-  S.dev = $('dev').value.trim() || '스캐너';
-  store.set('scan_pin', S.pin);
-  store.set('scan_dev', S.dev);
-  try { S.audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
-  const msg = $('setupMsg');
-  msg.className = 'msg'; msg.textContent = '명단을 불러오는 중입니다…';
+// ---------- 페이지를 열자마자 명단 미리 받기 ----------
+async function preload() {
+  if (!S.key) {
+    $('info').textContent = '직원용 링크로 접속해 주세요.';
+    $('startMsg').textContent = 'Apps Script의 직원링크_보기()에 나온 ① 스캐너 링크를 이 휴대폰에서 한 번 열면 이후 자동으로 연결됩니다.';
+    return;
+  }
   try {
-    await loadInit();
+    const res = await api('staffInit', { key: S.key }, 20000);
+    if (!res.ok) { $('info').textContent = res.msg || '시작 정보를 받지 못했습니다.'; return; }
+    applyRoster(res);
+    store.setJSON('scan_cache', res);
+    S.ready = true;
   } catch (e) {
-    if (e.server) {
-      msg.className = 'msg bad'; msg.textContent = e.message;
-      return;
-    }
-    if (loadCache()) {
-      msg.className = 'msg bad';
-      msg.textContent = '서버 연결 실패 → 이 기기에 저장된 명단으로 시작합니다. (기록은 연결되면 자동 전송)';
+    const c = store.getJSON('scan_cache');
+    if (c) {
+      applyRoster(c);
+      S.ready = true;
+      $('startMsg').textContent = '인터넷 연결이 불안정하여 이 기기에 저장된 명단으로 시작합니다. 기록은 연결되면 자동 전송됩니다.';
     } else {
-      msg.className = 'msg bad'; msg.textContent = e.message || '서버에 연결하지 못했습니다.';
+      $('info').textContent = '서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침해 주세요.';
       return;
     }
   }
-  await startCamera();
-});
-
-async function startCamera() {
-  document.body.classList.add('scanning');
+  $('startBtn').disabled = false;
   updateCounts();
+}
+
+$('startBtn').addEventListener('click', async () => {
+  if (!S.ready) return;
+  try { S.audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  document.body.classList.add('scanning');
+  try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (e) {}
   try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) {}
-  const video = $('video');
-  S.scanner = new QrScanner(video, (r) => onCode(r.data), {
-    preferredCamera: 'environment',
-    maxScansPerSecond: 25,
-    returnDetailedScanResult: true,
-    highlightScanRegion: false,
-    highlightCodeOutline: false,
-    calculateScanRegion: (v) => {
-      const s = Math.round(Math.min(v.videoWidth, v.videoHeight) * 0.85);
-      const d = Math.min(s, 520);
-      return { x: Math.round((v.videoWidth - s) / 2), y: Math.round((v.videoHeight - s) / 2), width: s, height: s, downScaledWidth: d, downScaledHeight: d };
-    }
-  });
+  if (!S.scanner) {
+    S.scanner = new QrScanner($('video'), (r) => onCode(r.data), {
+      preferredCamera: 'environment',
+      maxScansPerSecond: 25,
+      returnDetailedScanResult: true,
+      highlightScanRegion: false,
+      highlightCodeOutline: false,
+      calculateScanRegion: (v) => {
+        const s = Math.round(Math.min(v.videoWidth, v.videoHeight) * 0.9);
+        const d = Math.min(s, 520);
+        return { x: Math.round((v.videoWidth - s) / 2), y: Math.round((v.videoHeight - s) / 2), width: s, height: s, downScaledWidth: d, downScaledHeight: d };
+      }
+    });
+  }
   try {
     await S.scanner.start();
     if (await S.scanner.hasFlash()) $('torchBtn').hidden = false;
   } catch (e) {
-    show('bad', '카메라를 열 수 없습니다', '브라우저의 카메라 권한을 허용해 주세요.');
+    show('bad', '카메라를 열 수 없습니다', '브라우저 설정에서 카메라 권한을 허용해 주세요.');
   }
-  focusWedge();
-}
+  updateCounts();
+});
 
 $('torchBtn').addEventListener('click', () => S.scanner && S.scanner.toggleFlash());
-$('stopBtn').addEventListener('click', () => {
-  if (S.queue.length && !window.confirm('아직 전송되지 않은 기록이 ' + S.queue.length + '건 있습니다. 종료해도 기기에 보관되며 다음 실행 때 전송됩니다. 종료할까요?')) return;
-  S.scanner && S.scanner.stop();
-  document.body.classList.remove('scanning');
-});
 
 // ---------- QR 판정 (휴대폰 안에서 즉시 처리) ----------
 async function onCode(raw) {
+  if ($('manualPanel').classList.contains('show')) return;
   const text = String(raw || '').trim();
   const parts = text.split('.');
   if (parts.length !== 4) return showOnce('?' + text, 'bad', '출석 QR이 아닙니다', '알림톡으로 받은 출석 QR을 보여 주세요.');
@@ -275,7 +271,7 @@ async function onCode(raw) {
   if (p) p.att = hhmmss(new Date(now));
   S.queue.push({ id: uid(), p: text, o, at: now });
   persistQueue();
-  show('ok', who || '출석 확인', who ? '출석 완료 ' + hhmmss(new Date(now)) : '명단 새로고침 후 이름 표시');
+  show('ok', who || '출석 확인', who ? '출석 완료 ' + hhmmss(new Date(now)) : '출석 완료 (이름은 새로고침 후 표시)');
   updateCounts();
   flush();
 }
@@ -288,16 +284,27 @@ function showOnce(key, type, main, sub) {
   show(type, main, sub);
 }
 
-// ---------- 시트 기록 (뒤에서 일괄 전송) ----------
+// ---------- 시트 기록 (뒤에서 일괄 전송, 실패 시 자동 재전송) ----------
 const FAIL_TEXT = { EXPIRED: '만료된 QR', SIG: '서명 불일치', BAD: '형식 오류', WRONG_ROUND: '다른 회차', CLOCK: '시각 오류', NOT_FOUND: '명단에 없음' };
 
 async function flush() {
   if (S.inflight || !S.queue.length) return;
   S.inflight = true; updateCounts();
-  const batch = S.queue.slice(0, 40);
+  const head = S.queue[0];
   try {
+    if (head.undo) {
+      // 출석 취소는 한 건씩 처리
+      const res = await api('attUndo', { key: S.key, o: head.o }, 20000);
+      if (res.ok || res.code === 'NOT_FOUND') {
+        S.queue.shift(); persistQueue();
+        if (res.att) applyAtt(res.att, true);
+      }
+      return;
+    }
+    const batch = [];
+    for (const q of S.queue) { if (q.undo) break; batch.push(q); if (batch.length >= 40) break; }
     const res = await api('checkin', {
-      pin: S.pin, dev: S.dev,
+      key: S.key, dev: S.dev,
       items: batch.map((x) => ({ id: x.id, p: x.p, o: x.o, manual: !!x.manual, at: x.at, dev: S.dev }))
     }, 25000);
     if (res.ok) {
@@ -315,29 +322,35 @@ async function flush() {
           addFail((p ? p.name : (src && src.o) || '') + ' · ' + (FAIL_TEXT[r.code] || r.code));
         }
       });
-      applyAtt(res.att);
-    } else if (res.code === 'PIN' || res.code === 'PIN_LOCK') {
-      show('bad', 'PIN 오류', res.msg);
+      applyAtt(res.att, false);
+    } else if (res.code === 'KEY' || res.code === 'KEY_LOCK') {
+      show('bad', '직원 링크 오류', res.msg);
     }
   } catch (e) {
     // 네트워크 오류: 대기열 유지 후 재시도
   } finally {
     S.inflight = false;
     updateCounts();
+    if ($('manualPanel').classList.contains('show')) renderList();
   }
 }
 setInterval(flush, 1000);
 
-function applyAtt(att) {
+// 서버 출석 현황 반영 (full=true면 서버에 없는 출석은 지움)
+function applyAtt(att, full) {
   if (!att) return;
-  Object.keys(att).forEach((o) => { const p = S.roster.get(o); if (p) p.att = att[o]; });
+  const pendingO = new Set(S.queue.map((q) => q.o));
+  S.roster.forEach((p, o) => {
+    if (att[o]) p.att = att[o];
+    else if (full && !pendingO.has(o)) p.att = '';
+  });
   updateCounts();
 }
 
-// 다른 스캐너 기기에서 처리한 출석 반영
+// 다른 스캐너 기기에서 처리한 출석 반영 (15초 간격)
 setInterval(async () => {
-  if (!document.body.classList.contains('scanning') || S.inflight) return;
-  try { const res = await api('staffSync', { pin: S.pin }); if (res.ok && String(res.round) === S.round) applyAtt(res.att); } catch (e) {}
+  if (!document.body.classList.contains('scanning') || S.inflight || S.queue.length) return;
+  try { const res = await api('staffSync', { key: S.key }); if (res.ok && String(res.round) === S.round) applyAtt(res.att, true); } catch (e) {}
 }, 15000);
 
 function addFail(t) {
@@ -346,7 +359,6 @@ function addFail(t) {
 }
 
 // ---------- 2D 바코드 스캐너(키보드 입력 방식) ----------
-// 입력칸 없이 화면 전체에서 키 입력을 받아, Enter가 들어오면 QR 내용으로 처리 (휴대폰 자판이 뜨지 않음)
 let wedgeBuf = '', wedgeLast = 0;
 document.addEventListener('keydown', (e) => {
   if (!document.body.classList.contains('scanning') || $('manualPanel').classList.contains('show')) return;
@@ -361,11 +373,10 @@ document.addEventListener('keydown', (e) => {
     wedgeBuf += e.key;
   }
 });
-function focusWedge() {}
 
-// ---------- 수동 출석 ----------
-$('manualBtn').addEventListener('click', () => { $('manualPanel').classList.add('show'); $('search').value = ''; renderList(); $('search').focus(); });
-$('closeManual').addEventListener('click', () => { $('manualPanel').classList.remove('show'); focusWedge(); });
+// ---------- 수동 출석 · 출석 취소 ----------
+$('manualBtn').addEventListener('click', () => { $('manualPanel').classList.add('show'); $('search').value = ''; renderList(); });
+$('closeManual').addEventListener('click', () => { $('manualPanel').classList.remove('show'); });
 $('search').addEventListener('input', renderList);
 
 function renderList() {
@@ -373,18 +384,22 @@ function renderList() {
   const rows = [];
   S.roster.forEach((p, o) => { if (!q || (p.name || '').includes(q)) rows.push([o, p]); });
   rows.sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'ko'));
-  $('list').innerHTML = rows.slice(0, 120).map(([o, p]) =>
-    '<div class="person' + (p.att ? ' done' : '') + '"><div><div class="nm">' + esc(p.name) + '</div>' +
-    '<div class="st">' + esc(p.birth || '') + ' · ' + esc(p.status || '') + (p.att ? ' · 출석 ' + esc(p.att) : ' · 미출석') + '</div></div>' +
-    (p.att ? '<button disabled>출석됨</button>' : '<button data-o="' + esc(o) + '">출석 처리</button>') + '</div>'
+  $('list').innerHTML = rows.slice(0, 150).map(([o, p]) =>
+    '<div class="person"><div><div class="nm">' + esc(p.name) + '</div>' +
+    '<div class="st">' + esc(p.birth || '') + ' · ' + esc(p.status || '') + (p.att ? ' · <b style="color:var(--ok)">출석 ' + esc(p.att) + '</b>' : ' · 미출석') + '</div></div>' +
+    (p.att
+      ? '<button class="undo" data-act="undo" data-o="' + esc(o) + '">출석 취소</button>'
+      : '<button class="do" data-act="do" data-o="' + esc(o) + '">출석 처리</button>') + '</div>'
   ).join('') || '<p class="muted">검색 결과가 없습니다.</p>';
-  $('list').querySelectorAll('button[data-o]').forEach((b) => b.addEventListener('click', () => manual(b.dataset.o)));
+  $('list').querySelectorAll('button[data-o]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.act === 'undo') undoAtt(b.dataset.o); else manual(b.dataset.o);
+  }));
 }
 
 function manual(o) {
   const p = S.roster.get(o);
   if (!p || p.att) return;
-  if (!window.confirm(p.name + ' (' + (p.birth || '') + ') 님을 수동 출석 처리할까요?')) return;
+  if (!window.confirm(p.name + ' (' + (p.birth || '') + ') 님을 출석 처리할까요?')) return;
   const now = Date.now();
   p.att = hhmmss(new Date(now));
   S.queue.push({ id: uid(), o, manual: true, at: now });
@@ -392,6 +407,21 @@ function manual(o) {
   renderList(); updateCounts(); flush();
 }
 
+function undoAtt(o) {
+  const p = S.roster.get(o);
+  if (!p || !p.att) return;
+  if (!window.confirm(p.name + ' (' + (p.birth || '') + ') 님의 출석(' + p.att + ')을 취소할까요?')) return;
+  // 아직 전송 전인 출석 기록이면 대기열에서만 삭제
+  const before = S.queue.length;
+  if (!S.inflight) S.queue = S.queue.filter((q) => !(q.o === o && !q.undo));
+  if (S.inflight || S.queue.length === before) S.queue.push({ id: uid(), o, undo: true, at: Date.now() });
+  p.att = '';
+  S.recent.delete(o);
+  persistQueue();
+  renderList(); updateCounts(); flush();
+}
+
+preload();
 updateCounts();
 </script>
 </body>

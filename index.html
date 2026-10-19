@@ -26,9 +26,9 @@
   <div class="no-print">
     <h1>보수교육 출석·좌석 (오프라인)</h1>
     <div class="card">
-      <a class="btn" href="scan.html">① 출석 스캐너 (직원)</a>
-      <a class="btn" href="board.html">② 좌석 현황판 (직원·대형화면)</a>
-      <a class="btn secondary" href="seat.html">③ 좌석 선택 (수강생)</a>
+      <a class="btn" href="board.html">빔스크린 좌석 현황판 + 좌석등록 QR</a>
+      <a class="btn secondary" href="seat.html">좌석 선택 (수강생 화면 미리보기)</a>
+      <p class="muted">출석 스캐너와 현황판 수정 기능은 Apps Script의 <b>직원링크_보기()</b>에 나오는 직원용 링크로 접속합니다.</p>
       <p class="msg" id="ping">서버 확인 중…</p>
     </div>
   </div>
@@ -36,6 +36,7 @@
   <div class="card poster">
     <h2>좌석 등록 안내</h2>
     <p>자리에 앉으신 뒤 QR을 찍고<br><b>이름 · 생년월일 6자리</b>를 입력해 주세요.</p>
+    <p class="muted no-print">빔스크린을 쓸 수 없을 때 책상에 비치하는 인쇄용 안내문입니다.</p>
     <canvas id="seatQr" width="400" height="400"></canvas>
     <p class="url muted" id="seatUrl"></p>
     <button class="btn secondary no-print" type="button" onclick="window.print()">이 안내문 인쇄 (교육장 게시용)</button>

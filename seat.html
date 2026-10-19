@@ -9,16 +9,20 @@
 <style>
   .status { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .mine-box { font-size: 16px; font-weight: 700; }
-  .mine-box b { color: var(--primary); font-size: 20px; }
+  .mine-box b { color: var(--primary); font-size: 22px; }
+  .btn.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+  .btn.small { padding: 10px; font-size: 14px; margin-top: 8px; }
+  .changing { border: 2px solid var(--warn); }
+  .changing-tip { color: var(--warn); font-weight: 700; font-size: 14px; margin: 6px 0 0; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>좌석 선택 <span class="muted" id="roundLbl"></span></h1>
 
+  <!-- 본인 확인 -->
   <div class="card" id="loginCard">
     <h2>본인 확인</h2>
-    <p class="muted" style="margin:0">입구에서 출석 QR을 확인받은 뒤 이용해 주세요.</p>
     <label for="nm">이름</label>
     <input id="nm" type="text" autocomplete="name" placeholder="홍길동">
     <label for="bd">생년월일 6자리</label>
@@ -27,26 +31,33 @@
     <div class="msg" id="loginMsg"></div>
   </div>
 
+  <!-- 내 좌석 -->
   <div class="card" id="meCard" hidden>
     <div class="mine-box"><span id="meName"></span> 님 · 내 좌석 <b id="meSeat">미지정</b></div>
-    <p class="muted" id="meHint" style="margin:6px 0 0">아래 배치도에서 앉은 자리를 눌러 주세요.</p>
-    <button class="btn secondary" id="logoutBtn" type="button" style="padding:8px;font-size:14px">다른 사람으로 확인</button>
+    <p class="muted" id="meHint" style="margin:6px 0 0"></p>
+    <p class="changing-tip" id="changeTip" hidden>바꿀 좌석을 배치도에서 눌러 주세요.</p>
+    <div class="row2" id="editBtns" hidden>
+      <button class="btn secondary small" id="changeBtn" type="button">좌석 변경하기</button>
+      <button class="btn danger small" id="cancelSeatBtn" type="button">좌석 취소</button>
+    </div>
+    <button class="btn secondary small" id="logoutBtn" type="button">이름·생년월일 다시 입력</button>
   </div>
 
-  <div class="card">
+  <div class="card" id="mapCard">
     <div class="status"><span>좌석지정 <b id="seated">0</b>명</span><span>갱신 <span id="upd">-</span></span></div>
     <div class="legend"><span><i style="background:var(--seat-free)"></i>빈 좌석</span><span><i style="background:var(--seat-taken)"></i>지정됨</span><span><i style="background:var(--seat-mine)"></i>내 좌석</span></div>
     <div class="map-scroll" id="map"></div>
   </div>
 </div>
 
+<!-- 확인창 -->
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet">
-    <div class="muted">이 좌석으로 지정할까요?</div>
+    <div class="muted" id="sheetSub">이 좌석으로 지정할까요?</div>
     <div class="big" id="sheetSeat"></div>
     <div class="row2">
-      <button class="btn secondary" id="cancelBtn" type="button">취소</button>
-      <button class="btn" id="okBtn" type="button">지정</button>
+      <button class="btn secondary" id="cancelBtn" type="button">아니요</button>
+      <button class="btn" id="okBtn" type="button">예</button>
     </div>
   </div>
 </div>
@@ -59,12 +70,14 @@
   'use strict';
   var api = APP.api, store = APP.store, $ = function (id) { return document.getElementById(id); };
   var state = { seats: {} };
-  var me = store.getJSON('seat_me');       // {round, o, t, name, seat}
-  var picking = null;
+  var me = store.getJSON('seat_me');       // {round, o, t, name, seat, allowChange}
+  var picking = null;                      // 확인창에 올린 좌석
+  var sheetMode = 'pick';                  // 'pick' | 'cancel'
+  var changing = false;                    // 좌석 변경 모드
 
   function toast(t) {
     var el = $('toast'); el.textContent = t; el.classList.add('show');
-    clearTimeout(toast.tm); toast.tm = setTimeout(function () { el.classList.remove('show'); }, 2600);
+    clearTimeout(toast.tm); toast.tm = setTimeout(function () { el.classList.remove('show'); }, 2800);
   }
 
   APP.renderSeatMap($('map'), { onSeat: onSeat });
@@ -77,16 +90,22 @@
       b.classList.toggle('taken', !!who && !mine);
       b.classList.toggle('pick', picking === id);
       b.querySelector('.nm').textContent = mine ? '나' : '';
-      b.title = who ? '지정됨' : '빈 좌석';
     });
     $('seated').textContent = state.seated || 0;
     $('upd').textContent = state.t || '-';
     $('roundLbl').textContent = state.round ? '· 오프라인 ' + state.round + '차' : '';
+    $('mapCard').classList.toggle('changing', changing);
     if (me) {
       $('loginCard').hidden = true; $('meCard').hidden = false;
       $('meName').textContent = me.name;
       $('meSeat').textContent = me.seat ? APP.seatLabel(me.seat) : '미지정';
-      $('meHint').textContent = me.seat ? '자리를 옮겼다면 새 좌석을 눌러 변경해 주세요.' : '아래 배치도에서 앉은 자리를 눌러 주세요.';
+      var canEdit = !!me.seat && me.allowChange !== false;
+      $('editBtns').hidden = !canEdit;
+      $('changeTip').hidden = !changing;
+      $('changeBtn').textContent = changing ? '변경 그만두기' : '좌석 변경하기';
+      $('meHint').textContent = me.seat
+        ? (me.allowChange === false ? '좌석 변경은 직원에게 요청해 주세요.' : '잘못 고른 경우 [좌석 변경하기] 또는 [좌석 취소]를 눌러 주세요.')
+        : '아래 배치도에서 앉은 자리를 눌러 주세요.';
     } else {
       $('loginCard').hidden = false; $('meCard').hidden = true;
     }
@@ -98,75 +117,111 @@
       if (!res.ok) return;
       if (me && me.round !== String(res.round)) { me = null; store.del('seat_me'); }
       state = res;
-      if (me && me.seat && !state.seats[me.seat]) { me.seat = ''; store.setJSON('seat_me', me); } // 직원이 좌석을 해제한 경우
+      if (me && me.seat && !state.seats[me.seat]) { me.seat = ''; store.setJSON('seat_me', me); } // 직원이 해제한 경우
       paint();
     } catch (e) {}
   }
 
   // 실시간 갱신: 화면이 보일 때만, 좌석 지정 전 4초 / 지정 후 15초 간격
   function loop() {
-    var wait = me && me.seat ? 15000 : 4000;
+    var wait = me && me.seat && !changing ? 15000 : 4000;
     setTimeout(function () {
       if (!document.hidden) refresh().finally(loop); else loop();
     }, wait);
   }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
 
+  // ---------- 본인 확인 ----------
   $('loginBtn').addEventListener('click', async function () {
     var msg = $('loginMsg');
     var name = $('nm').value.trim(), birth = $('bd').value.replace(/\D/g, '');
     if (!name || birth.length !== 6) { msg.className = 'msg bad'; msg.textContent = '이름과 생년월일 6자리를 입력해 주세요.'; return; }
     msg.className = 'msg'; msg.textContent = '확인 중입니다…';
-    this.disabled = true;
+    var btn = this; btn.disabled = true;
     try {
       var res = await api('seatLogin', { name: name, birth: birth });
       if (!res.ok) { msg.className = 'msg bad'; msg.textContent = res.msg; return; }
-      me = { round: String(res.round), o: res.o, t: res.t, name: res.name, seat: res.seat || '' };
+      me = { round: String(res.round), o: res.o, t: res.t, name: res.name, seat: res.seat || '', allowChange: res.allowChange };
       store.setJSON('seat_me', me);
       msg.textContent = '';
+      changing = false;
       paint();
-      if (!me.seat) toast('앉은 자리를 배치도에서 눌러 주세요.');
+      toast(me.seat ? '이미 ' + APP.seatLabel(me.seat) + ' 좌석이 지정되어 있습니다.' : '앉은 자리를 배치도에서 눌러 주세요.');
+      if (!me.seat) $('mapCard').scrollIntoView({ behavior: 'smooth' });
     } catch (e) {
       msg.className = 'msg bad'; msg.textContent = '연결이 원활하지 않습니다. 다시 눌러 주세요.';
     } finally {
-      this.disabled = false;
+      btn.disabled = false;
     }
   });
 
   $('logoutBtn').addEventListener('click', function () {
-    me = null; store.del('seat_me'); $('nm').value = ''; $('bd').value = ''; paint();
+    me = null; changing = false; store.del('seat_me');
+    $('nm').value = ''; $('bd').value = ''; $('loginMsg').textContent = '';
+    paint(); $('nm').focus();
+  });
+
+  // ---------- 좌석 변경 · 취소 ----------
+  $('changeBtn').addEventListener('click', function () {
+    changing = !changing;
+    paint();
+    if (changing) { toast('바꿀 좌석을 배치도에서 눌러 주세요.'); $('mapCard').scrollIntoView({ behavior: 'smooth' }); }
+  });
+
+  $('cancelSeatBtn').addEventListener('click', function () {
+    if (!me || !me.seat) return;
+    sheetMode = 'cancel';
+    picking = me.seat;
+    $('sheetSub').textContent = '지정한 좌석을 취소할까요?';
+    $('sheetSeat').textContent = APP.seatLabel(me.seat) + ' 취소';
+    $('okBtn').textContent = '취소하기';
+    $('sheetBg').classList.add('show');
+    paint();
   });
 
   function onSeat(id) {
     if (!me) { toast('먼저 이름과 생년월일로 본인 확인을 해 주세요.'); $('nm').focus(); return; }
     if (me.seat === id) { toast('현재 내 좌석입니다.'); return; }
-    if (state.seats[id]) { toast('이미 지정된 좌석입니다.'); return; }
-    picking = id; paint();
+    if (state.seats[id]) { toast('이미 다른 분이 지정한 좌석입니다.'); return; }
+    if (me.seat && !changing) {
+      if (me.allowChange === false) { toast('좌석 변경은 직원에게 요청해 주세요.'); return; }
+      toast('좌석을 바꾸려면 위의 [좌석 변경하기]를 먼저 눌러 주세요.');
+      return;
+    }
+    sheetMode = 'pick';
+    picking = id;
+    $('sheetSub').textContent = me.seat ? APP.seatLabel(me.seat) + '에서 아래 좌석으로 변경할까요?' : '이 좌석으로 지정할까요?';
     $('sheetSeat').textContent = APP.seatLabel(id);
+    $('okBtn').textContent = me.seat ? '변경' : '지정';
     $('sheetBg').classList.add('show');
+    paint();
   }
 
-  $('cancelBtn').addEventListener('click', function () { picking = null; $('sheetBg').classList.remove('show'); paint(); });
+  function closeSheet() { picking = null; $('sheetBg').classList.remove('show'); paint(); }
+  $('cancelBtn').addEventListener('click', closeSheet);
 
   $('okBtn').addEventListener('click', async function () {
     var id = picking;
     var btn = this; btn.disabled = true;
     try {
-      var res = await api('seatPick', { o: me.o, t: me.t, seat: id });
-      if (res.seats) { state = res; }
+      var res = sheetMode === 'cancel'
+        ? await api('seatCancel', { o: me.o, t: me.t })
+        : await api('seatPick', { o: me.o, t: me.t, seat: id });
+      if (res.seats) state = res;
       if (res.ok) {
-        me.seat = res.mySeat || id; store.setJSON('seat_me', me);
-        toast(APP.seatLabel(me.seat) + ' 좌석으로 지정되었습니다.');
+        me.seat = res.mySeat || '';
+        store.setJSON('seat_me', me);
+        changing = false;
+        toast(sheetMode === 'cancel' ? '좌석을 취소했습니다. 앉은 자리를 다시 눌러 주세요.' : APP.seatLabel(me.seat) + ' 좌석으로 지정되었습니다.');
       } else {
         if (res.code === 'AUTH') { me = null; store.del('seat_me'); }
-        toast(res.msg || '지정하지 못했습니다.');
+        toast(res.msg || '처리하지 못했습니다.');
       }
     } catch (e) {
       toast('연결이 원활하지 않습니다. 다시 시도해 주세요.');
     } finally {
-      btn.disabled = false; picking = null;
-      $('sheetBg').classList.remove('show');
-      paint();
+      btn.disabled = false;
+      closeSheet();
     }
   });
 

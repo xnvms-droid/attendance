@@ -88,5 +88,5 @@ input[type=text], input[type=tel], input[type=password], input[type=search] {
 .sheet { background: var(--card); width: 100%; max-width: 640px; border-radius: 16px 16px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
 .sheet .big { font-size: 22px; font-weight: 800; margin: 4px 0 8px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 60; display: none; max-width: 90vw; }
+.toast { position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top)); transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 60; display: none; max-width: 90vw; }
 .toast.show { display: block; }
