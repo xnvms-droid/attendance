@@ -57,8 +57,9 @@
 
 <script src="config.js"></script>
 <script src="assets/common.js"></script>
-<script src="vendor/html2canvas.min.js"></script>
-<script src="vendor/jspdf.umd.min.js"></script>
+<!-- PDF 도구: 공개 CDN에서 불러옴 (깃허브에 따로 올릴 파일 없음) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 (function () {
   'use strict';
@@ -110,7 +111,7 @@
   // ---------- 화면의 서명부를 그대로 PDF로 만들어 드라이브 「서명부」 폴더에 저장 ----------
   async function savePdf() {
     if (!loaded) return;
-    if (!window.html2canvas || !window.jspdf) { $('saveMsg').textContent = 'PDF 도구(vendor 폴더의 html2canvas.min.js, jspdf.umd.min.js)를 불러오지 못했습니다.'; return; }
+    if (!window.html2canvas || !window.jspdf) { $('saveMsg').textContent = 'PDF 도구를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침(Ctrl+Shift+R) 해 주세요.'; return; }
     var btn = $('saveBtn'); btn.disabled = true;
     var pages = Array.prototype.slice.call(document.querySelectorAll('#pages .page'));
     try {
