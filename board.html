@@ -42,26 +42,27 @@
   .beam-side { background: #1f5fbf; color: #fff; border-radius: 16px; padding: 2vh 1.6vw; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 0; }
   .beam-side .ttl { font-size: clamp(20px, 3.6vh, 46px); font-weight: 900; letter-spacing: 1px; line-height: 1.15; }
   .beam-side .sess { margin-top: .6vh; background: #fff; color: #1f5fbf; border-radius: 999px; padding: .3vh 1.2vw; font-size: clamp(14px, 2.3vh, 28px); font-weight: 900; }
-  .beam-side .qrwrap { position: relative; background: #fff; border-radius: 16px; padding: 1.1vh; margin: 1.4vh 0 .6vh; width: min(100%, 36vh); }
+  .beam-side .qrwrap { position: relative; background: #fff; border-radius: 16px; padding: 1.1vh; margin: 1.2vh 0 .6vh; width: min(100%, 34vh); }
   .beam-side canvas#beamQr { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
   .qr-msg { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; color: #1d2129; font-weight: 800; font-size: clamp(13px, 2vh, 22px); padding: 1vh; background: #fff; border-radius: 16px; }
   .qr-msg.show { display: flex; }
-  .rot { width: min(100%, 36vh); height: .7vh; min-height: 4px; background: rgba(255,255,255,.25); border-radius: 4px; overflow: hidden; }
+  .rot { width: min(100%, 34vh); height: .7vh; min-height: 4px; background: rgba(255,255,255,.25); border-radius: 4px; overflow: hidden; }
   .rot i { display: block; height: 100%; background: #ffd166; width: 100%; transition: width .9s linear; }
   .rot-tx { font-size: clamp(10px, 1.3vh, 15px); opacity: .85; margin-top: .3vh; }
-  .beam-side ol { text-align: left; margin: 1vh 0 0; padding-left: 1.4em; font-size: clamp(13px, 2.1vh, 25px); line-height: 1.5; font-weight: 700; }
+  .beam-side ol { text-align: left; margin: 1.2vh 0 0; padding-left: 1.3em; font-size: clamp(15px, 2.65vh, 34px); line-height: 1.3; font-weight: 900; letter-spacing: -.3px; white-space: nowrap; }
   .beam-side ol .red { color: #ffb3b3; }
-  .beam-side ol small { display: block; font-weight: 500; font-size: .75em; opacity: .9; }
-  .wifi { margin-top: 1.4vh; width: 100%; background: rgba(255,255,255,.12); border-radius: 12px; padding: .9vh .8vw; }
-  .wifi-ttl { font-size: clamp(12px, 1.6vh, 19px); font-weight: 800; margin-bottom: .5vh; }
-  .wifi-ttl small { font-weight: 500; opacity: .85; font-size: .8em; margin-left: .4em; }
+  .beam-side ol small { display: block; white-space: normal; font-weight: 600; font-size: .55em; opacity: .9; line-height: 1.3; }
+  .beam-warn { margin-top: 1vh; width: 100%; background: #d10000; color: #fff; border-radius: 10px; padding: .6vh .6vw; font-size: clamp(12px, 1.9vh, 23px); font-weight: 900; line-height: 1.35; }
+  .beam-warn small { display: block; font-weight: 700; font-size: .8em; }
+  .wifi { margin-top: 1vh; width: 100%; background: #fff; color: #1d2129; border-radius: 12px; padding: .8vh .8vw; }
+  .wifi-ttl { font-size: clamp(14px, 2.2vh, 26px); font-weight: 900; margin-bottom: .5vh; color: #d10000; }
+  .wifi-ttl small { font-weight: 700; font-size: .7em; margin-left: .4em; color: #d10000; }
   .wifi-list { display: flex; gap: .8vw; justify-content: center; }
   .wifi-item { display: flex; flex-direction: column; gap: .3vh; align-items: center; text-align: center; min-width: 0; flex: 1; }
-  .wifi-item canvas { width: clamp(44px, 7vh, 92px); height: clamp(44px, 7vh, 92px); background: #fff; border-radius: 6px; padding: 3px; flex: none; }
+  .wifi-item canvas { width: clamp(40px, 6vh, 80px); height: clamp(40px, 6vh, 80px); background: #fff; border: 1px solid #c9ced6; border-radius: 6px; padding: 3px; flex: none; }
   .wifi-item .tx { font-size: clamp(10px, 1.2vh, 14px); line-height: 1.3; white-space: nowrap; }
-  .wifi-item .tx b { display: block; font-size: 1.1em; }
-  .beam-side .clock { margin-top: auto; font-size: clamp(18px, 3.2vh, 38px); font-weight: 800; font-variant-numeric: tabular-nums; }
-  .beam-side .upd { font-size: clamp(11px, 1.3vh, 15px); opacity: .8; }
+  .wifi-item .tx b { display: block; font-size: 1.1em; color: #d10000; }
+  .beam-side .foot { margin-top: auto; padding-top: .6vh; font-size: clamp(9px, 1.1vh, 13px); opacity: .65; font-variant-numeric: tabular-nums; }
 
   /* ---------- 직원 도구 (전체화면에서는 숨김, 마우스를 올리면 표시) ---------- */
   .tools { position: fixed; left: 2.4vw; bottom: 2.2vh; display: flex; gap: 6px; z-index: 30; flex-wrap: wrap; max-width: 66vw; }
@@ -108,16 +109,16 @@
     <div class="rot-tx">QR은 <span id="rotSec">30</span>초마다 바뀝니다 · 교육장 안에서 바로 촬영해 주세요</div>
     <ol>
       <li>휴대폰 카메라로 QR 촬영</li>
-      <li>이름 · 생년월일 · 휴대폰번호 입력</li>
+      <li>이름·생년월일·휴대폰번호 입력</li>
       <li><span class="red">서명</span> (이름을 정자로)</li>
       <li>앉은 좌석 누르기<small>잘못 누른 경우 다른 좌석을 누르면 변경됩니다</small></li>
     </ol>
+    <div class="beam-warn">⚠ 반드시 본인만 출석해 주세요<small>대리 출석·좌석 대리 지정 시 이수 불인정</small></div>
     <div class="wifi" id="wifi" hidden>
       <div class="wifi-ttl">교육장 Wi-Fi <small>카메라로 찍으면 바로 연결</small></div>
       <div class="wifi-list" id="wifiList"></div>
     </div>
-    <div class="clock" id="clock">--:--:--</div>
-    <div class="upd">자동 갱신 <span id="sUpd">-</span></div>
+    <div class="foot"><span id="clock">--:--:--</span> · 자동 갱신 <span id="sUpd">-</span></div>
   </aside>
 </div>
 
