@@ -29,6 +29,8 @@
   td.org { font-size: 9.5pt; }
   td.sg { padding: .6mm 1mm; }
   td.sg img { max-width: 100%; max-height: 9mm; display: block; margin: 0 auto; }
+  tr.absent td.tx { text-decoration: line-through; text-decoration-thickness: 1.5px; color: #555; }
+  td.abs { color: #d10000; font-weight: 700; letter-spacing: 6px; }
   col.c-no { width: 5%; } col.c-nm { width: 8%; } col.c-bd { width: 9%; } col.c-org { width: 30%; } col.c-s { width: 16%; }
 
   @media print {
@@ -88,8 +90,9 @@
 
   function render(res) {
     var cnt = [0, 0, 0];
-    res.rows.forEach(function (r) { r.s.forEach(function (s, i) { if (s) cnt[i]++; }); });
-    $('info').textContent = '오프라인 ' + res.round + '차 · ' + res.rows.length + '명 · 서명 ' + cnt.map(function (c, i) { return (i + 1) + '교시 ' + c; }).join(' / ');
+    var abs = 0;
+    res.rows.forEach(function (r) { if (r.absent) { abs++; return; } r.s.forEach(function (s, i) { if (s) cnt[i]++; }); });
+    $('info').textContent = '오프라인 ' + res.round + '차 · ' + res.rows.length + '명' + (abs ? ' (당일불참 ' + abs + '명)' : '') + ' · 서명 ' + cnt.map(function (c, i) { return (i + 1) + '교시 ' + c; }).join(' / ');
     $('round').value = res.round;
     document.title = '서명부_오프라인' + res.round + '차';
     var html = '';
@@ -99,6 +102,11 @@
         '<table><colgroup><col class="c-no"><col class="c-nm"><col class="c-bd"><col class="c-org"><col class="c-s"><col class="c-s"><col class="c-s"></colgroup>' +
         '<thead><tr><th>연번</th><th>성명</th><th>생년월일</th><th>소속</th><th>1교시</th><th>2교시</th><th>3교시</th></tr></thead><tbody>';
       part.forEach(function (r) {
+        if (r.absent) {   // 당일불참: 이름 등에 줄을 긋고 서명칸 3개를 합쳐 「당일불참」 표시
+          html += '<tr class="absent"><td>' + r.no + '</td><td class="tx">' + esc(r.name) + '</td><td class="tx">' + esc(r.birth) + '</td><td class="org tx">' + esc(r.org) + '</td>' +
+            '<td class="abs" colspan="3">당 일 불 참</td></tr>';
+          return;
+        }
         html += '<tr><td>' + r.no + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.birth) + '</td><td class="org">' + esc(r.org) + '</td>' +
           r.s.map(function (s) { return '<td class="sg">' + (s ? '<img alt="서명" src="' + esc(s) + '">' : '') + '</td>'; }).join('') + '</tr>';
       });
