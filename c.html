@@ -32,6 +32,10 @@
   .err-card { text-align: center; padding: 30px 16px; }
   .err-card .big { font-size: 18px; font-weight: 800; color: var(--bad); }
   .remain { font-size: 12px; color: var(--muted); text-align: right; }
+  .map-tip { background: var(--bg); border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.55; margin-bottom: 8px; }
+  .map-tip b { color: var(--primary); }
+  .seat-desc { font-size: 15px; font-weight: 700; color: var(--text); background: var(--bg); border-radius: 10px; padding: 8px 10px; margin-bottom: 4px; }
+  #meDesc { font-size: 14px; font-weight: 700; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -71,6 +75,7 @@
     <div class="card">
       <div class="done-box" id="doneBox"></div>
       <div class="mine-box" style="margin-top:10px">내 좌석 <b id="meSeat">미지정</b></div>
+      <div id="meDesc"></div>
       <p class="muted" id="meHint" style="margin:6px 0 0"></p>
       <div class="row2" id="editBtns" hidden>
         <button class="btn secondary small" id="keepBtn" type="button">이 좌석이 맞습니다</button>
@@ -79,6 +84,7 @@
     </div>
     <div class="card" id="mapCard">
       <div class="status"><span>앉은 좌석을 눌러 주세요</span><span>갱신 <span id="upd">-</span></span></div>
+      <div class="map-tip">위쪽이 <b>스크린(앞)</b>입니다.<br><b>왼쪽 파란 숫자</b> = 앞에서 몇 번째 줄 · <b>위쪽 파란 숫자</b> = 스크린을 볼 때 왼쪽에서 몇 번째 자리<br>예) 앞에서 3번째 줄, 왼쪽에서 5번째 → <b>3열 5번</b></div>
       <div class="legend"><span><i style="background:var(--seat-free)"></i>빈 좌석</span><span><i style="background:var(--seat-taken)"></i>지정됨</span><span><i style="background:var(--seat-mine)"></i>내 좌석</span></div>
       <div class="map-scroll" id="map"></div>
     </div>
@@ -89,6 +95,7 @@
   <div class="sheet">
     <div class="muted" id="sheetSub"></div>
     <div class="big" id="sheetSeat"></div>
+    <div class="seat-desc" id="sheetDesc"></div>
     <div class="row2">
       <button class="btn secondary" id="noBtn" type="button">아니요</button>
       <button class="btn" id="okBtn" type="button">예</button>
@@ -286,6 +293,7 @@
     });
     $('upd').textContent = S.state.t || '-';
     $('meSeat').textContent = me.seat ? APP.seatLabel(me.seat) : '미지정';
+    $('meDesc').textContent = me.seat ? APP.seatDesc(me.seat) : '';
     $('editBtns').hidden = !me.seat || me.allowChange === false;
     $('meHint').textContent = !me.seat ? '아래 배치도에서 앉은 자리를 눌러 주세요.'
       : (me.allowChange === false ? '좌석 변경은 직원에게 요청해 주세요.' : '잘못 누른 경우 아래 배치도에서 맞는 좌석을 누르면 변경됩니다.');
@@ -317,6 +325,7 @@
     sheetMode = 'pick'; picking = id;
     $('sheetSub').textContent = me.seat ? APP.seatLabel(me.seat) + '에서 아래 좌석으로 변경할까요?' : '이 좌석으로 지정할까요?';
     $('sheetSeat').textContent = APP.seatLabel(id);
+    $('sheetDesc').textContent = APP.seatDesc(id);
     $('okBtn').textContent = me.seat ? '변경' : '지정';
     $('sheetBg').classList.add('show'); paint();
   }
@@ -327,6 +336,7 @@
     sheetMode = 'cancel'; picking = S.me.seat;
     $('sheetSub').textContent = '지정한 좌석을 취소할까요?';
     $('sheetSeat').textContent = APP.seatLabel(S.me.seat) + ' 취소';
+    $('sheetDesc').textContent = APP.seatDesc(S.me.seat);
     $('okBtn').textContent = '취소하기';
     $('sheetBg').classList.add('show'); paint();
   });
