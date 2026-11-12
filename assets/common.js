@@ -80,10 +80,24 @@
   // ---------- 강의실 배치도 ----------
   // 1~8열 × 10석 [2 | 3 | 3 | 2], 9열(뒷문 쪽 오른편) 3석
   var LAYOUT = { rows: 8, groups: [2, 3, 3, 2], backRow: 9, backCount: 3 };
+  var GROUP_NAMES = ['앞문 쪽 2인석', '가운데 왼쪽 3인석', '가운데 오른쪽 3인석', '창문 쪽 2인석'];
 
-  // 좌석번호(1~10) → 격자 열 번호 (1열은 문 표시용, 통로 3개 포함)
+  /** 좌석 위치를 말로 풀어 쓰기 (예: 앞에서 3번째 줄 · 스크린을 볼 때 왼쪽에서 5번째 자리) */
+  function seatDesc(id) {
+    var p = String(id).split('-'), r = Number(p[0]), c = Number(p[1]);
+    if (r === LAYOUT.backRow) return '맨 뒤 줄(뒷문 쪽 오른편 3석) · 왼쪽에서 ' + c + '번째 자리';
+    var n = 0, g = 0, inG = 0;
+    for (g = 0; g < LAYOUT.groups.length; g++) {
+      if (c <= n + LAYOUT.groups[g]) { inG = c - n; break; }
+      n += LAYOUT.groups[g];
+    }
+    var rowTxt = r === 1 ? '맨 앞 줄(1번째)' : '앞에서 ' + r + '번째 줄';
+    return rowTxt + ' · 스크린을 볼 때 왼쪽에서 ' + c + '번째 자리 (' + GROUP_NAMES[g] + ' 중 ' + inG + '번째)';
+  }
+
+  // 격자 열: 1=문 표시, 2=줄 번호, 3~ 좌석(통로 3개 포함), 마지막=창문 표시
   function gridCol(c) {
-    var col = 1, n = 0;
+    var col = 2, n = 0;
     for (var g = 0; g < LAYOUT.groups.length; g++) {
       for (var s = 0; s < LAYOUT.groups[g]; s++) {
         n++; col++;
@@ -96,8 +110,9 @@
 
   /**
    * 배치도 그리기
+   * - 맨 위: 좌석 번호(왼쪽부터 1~10), 왼쪽: 줄 번호(앞에서 1~9열)
    * @param {HTMLElement} el 넣을 위치
-   * @param {Object} opt { onSeat(id, btn), fill(id, btn) }
+   * @param {Object} opt { onSeat(id, btn) }
    */
   function renderSeatMap(el, opt) {
     opt = opt || {};
@@ -105,22 +120,24 @@
     var room = document.createElement('div');
     room.className = 'room';
     room.innerHTML =
-      '<div class="room-front"><div>화이트보드</div><div class="screen">스크린</div><div>단상</div></div>';
+      '<div class="room-front"><div>화이트보드</div><div class="screen">스크린 (앞)</div><div>단상</div></div>';
 
     var grid = document.createElement('div');
     grid.className = 'seat-grid';
-    // 문표시 | 2 | 통로 | 3 | 통로 | 3 | 통로 | 2 | 창문표시
+    // 문표시 | 줄번호 | 2 | 통로 | 3 | 통로 | 3 | 통로 | 2 | 창문표시
     grid.style.gridTemplateColumns =
-      'var(--door-w) repeat(2, var(--seat-w)) var(--aisle) repeat(3, var(--seat-w)) var(--aisle) ' +
+      'var(--door-w) var(--rowlab-w) repeat(2, var(--seat-w)) var(--aisle) repeat(3, var(--seat-w)) var(--aisle) ' +
       'repeat(3, var(--seat-w)) var(--aisle) repeat(2, var(--seat-w)) var(--door-w)';
+    grid.style.gridTemplateRows = 'auto';   // 첫 줄(좌석 번호 머리글)은 내용 높이만큼
 
-    function door(text, row, col, cls) {
+    function cell(cls, text, row, col) {
       var d = document.createElement('div');
-      d.className = 'door ' + (cls || '');
+      d.className = cls;
       d.textContent = text;
       d.style.gridRow = row;
       d.style.gridColumn = col;
       grid.appendChild(d);
+      return d;
     }
 
     function seat(id, row, col) {
@@ -128,6 +145,7 @@
       b.type = 'button';
       b.className = 'seat';
       b.dataset.id = id;
+      b.title = seatLabel(id) + ' · ' + seatDesc(id);
       b.style.gridRow = row;
       b.style.gridColumn = col;
       b.innerHTML = '<span class="no">' + id + '</span><span class="nm"></span>';
@@ -136,13 +154,19 @@
       return b;
     }
 
+    // 머리글: 좌석 번호 1~10 (스크린을 볼 때 왼쪽부터)
+    cell('colhead corner', '줄＼번', 1, 2);
+    for (var h = 1; h <= 10; h++) cell('colhead', h + '번', 1, gridCol(h));
+
     for (var r = 1; r <= LAYOUT.rows; r++) {
-      for (var c = 1; c <= 10; c++) seat(r + '-' + c, r, gridCol(c));
+      cell('rowlab', r + '열', r + 1, 2);
+      for (var c = 1; c <= 10; c++) seat(r + '-' + c, r + 1, gridCol(c));
     }
     // 9열: 오른쪽 2석 묶음 아래에 3석 (배치도와 동일)
+    cell('rowlab', LAYOUT.backRow + '열', LAYOUT.backRow + 1, 2);
     var back = document.createElement('div');
     back.className = 'back-row';
-    back.style.gridRow = LAYOUT.backRow;
+    back.style.gridRow = LAYOUT.backRow + 1;
     back.style.gridColumn = gridCol(9) + ' / ' + (gridCol(10) + 1);
     grid.appendChild(back);
     for (var k = 1; k <= LAYOUT.backCount; k++) {
@@ -150,14 +174,14 @@
       back.appendChild(b);
     }
 
-    door('앞문 ▶', 1, 1, 'left');
-    door('뒷문 ▶', LAYOUT.backRow, 1, 'left');
-    door('◀ 창문', 5, gridCol(10) + 1, 'right');
+    cell('door left', '앞문 ▶', 2, 1);
+    cell('door left', '뒷문 ▶', LAYOUT.backRow + 1, 1);
+    cell('door right', '◀ 창문', 6, gridCol(10) + 1);
 
     room.appendChild(grid);
     var desk = document.createElement('div');
     desk.className = 'staff-desk';
-    desk.textContent = '직원책상';
+    desk.textContent = '직원책상 (뒤)';
     room.appendChild(desk);
     el.appendChild(room);
     return room;
@@ -169,6 +193,6 @@
 
   window.APP = {
     CFG: CFG, api: api, hmac: hmac, store: store, staffKey: staffKey, hhmmss: hhmmss, esc: esc,
-    seatLabel: seatLabel, renderSeatMap: renderSeatMap, updateSeats: updateSeats
+    seatLabel: seatLabel, seatDesc: seatDesc, renderSeatMap: renderSeatMap, updateSeats: updateSeats
   };
 })();
