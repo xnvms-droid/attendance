@@ -242,6 +242,18 @@
     return c.toDataURL('image/png');
   }
 
+  // ---------- 이 휴대폰 브라우저의 무작위 표식 (기기 일치 확인용, 개인정보 아님) ----------
+  function deviceId() {
+    var id = store.get('ck_dev_id');
+    if (!id) {
+      var a = new Uint8Array(8);
+      try { crypto.getRandomValues(a); } catch (e) { for (var i = 0; i < 8; i++) a[i] = Math.floor(Math.random() * 256); }
+      id = Array.prototype.map.call(a, function (x) { return (x < 16 ? '0' : '') + x.toString(16); }).join('');
+      store.set('ck_dev_id', id);
+    }
+    return id;
+  }
+
   // ---------- 이 휴대폰의 교시별 출석 기록 ----------
   function deviceLog() {
     var d = store.getJSON('ck_dev');
@@ -274,7 +286,7 @@
     }
     var btn = this; btn.disabled = true; msg.className = 'msg'; msg.textContent = '저장 중입니다…';
     try {
-      var res = await api('checkin', { ticket: S.ticket, name: name, birth: birth, phone: phone, sign: signImage() }, 30000);
+      var res = await api('checkin', { ticket: S.ticket, name: name, birth: birth, phone: phone, sign: signImage(), dev: S.staff ? '' : deviceId() }, 30000);
       if (!res.ok) {
         msg.className = 'msg bad'; msg.textContent = res.msg || '저장하지 못했습니다.';
         if (res.code === 'TICKET') { try { sessionStorage.removeItem('ck_ticket'); } catch (e) {} }
