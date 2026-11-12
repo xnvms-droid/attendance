@@ -9,7 +9,7 @@
 <style>
   html, body { height: 100%; }
   body { background: #f4f5f7; color: #1d2129; }
-  :root { --seat-w: minmax(30px, 1fr); --aisle: 1.6vw; --door-w: 2vw; --seat-taken: #c9ced6; --seat-free: #ffffff; --line: #d9dce1; --muted: #6b7280; --text: #1d2129; --bg: #f4f5f7; --card: #fff; }
+  :root { --seat-w: minmax(30px, 1fr); --aisle: 1.6vw; --door-w: 2vw; --rowlab-w: 2.6vw; --seat-taken: #c9ced6; --seat-free: #ffffff; --line: #d9dce1; --muted: #6b7280; --text: #1d2129; --bg: #f4f5f7; --card: #fff; }
 
   /* ---------- 빔스크린: 왼쪽 배치도 · 오른쪽 출석 QR ---------- */
   .beam { display: grid; grid-template-columns: 1fr minmax(300px, 27vw); gap: 1.6vw; height: 100vh; padding: 1.6vh 1.6vw; }
@@ -21,7 +21,7 @@
   .map-holder { flex: 1; min-height: 0; }
   .room { min-width: 0; }
   .room-front { font-size: clamp(11px, 1.7vh, 20px); margin-bottom: 1.2vh; }
-  .seat-grid { gap: .45vh .3vw; grid-auto-rows: calc((100vh - 3.2vh - 3.2vh - 7vh - 4.5vh - 6vh) / 9); }
+  .seat-grid { gap: .45vh .3vw; grid-auto-rows: calc((100vh - 3.2vh - 3.2vh - 7vh - 4.5vh - 6vh - 3.2vh) / 9); }
   .back-row { gap: .3vw; }
   .seat { border-radius: 8px; gap: .2vh; }
   .seat .no { font-size: clamp(11px, 2vh, 24px); color: #8a919c; font-weight: 700; }
@@ -35,6 +35,8 @@
   .seat.filled.wait .st { color: #8a919c; }
   .seat.moving { outline: 4px solid #c27c0e; outline-offset: 1px; }
   .door { font-size: clamp(11px, 1.8vh, 20px); }
+  .rowlab { font-size: clamp(11px, 1.9vh, 22px); }
+  .colhead { font-size: clamp(10px, 1.6vh, 19px); padding: .2vh 0; }
   .staff-desk { margin-top: 1.2vh; font-size: clamp(11px, 1.6vh, 18px); padding: .5vh 0; }
 
   .beam-side { background: #1f5fbf; color: #fff; border-radius: 16px; padding: 2vh 1.6vw; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 0; }
@@ -102,7 +104,7 @@
     <ol>
       <li>휴대폰 카메라로 QR 촬영</li>
       <li>이름 · 생년월일 · 휴대폰번호 입력</li>
-      <li><span class="red">빨간색 서명</span> (이름을 정자로)</li>
+      <li><span class="red">서명</span> (이름을 정자로)</li>
       <li>앉은 좌석 누르기<small>잘못 누른 경우 다른 좌석을 누르면 변경됩니다</small></li>
     </ol>
     <div class="wifi" id="wifi" hidden>
@@ -200,179 +202,4 @@
     var sess = data.session || 1;
     APP.updateSeats($('map'), function (id, b) {
       var v = data.seats[id];
-      var p = admin ? personBySeat(id) : null;
-      b.classList.toggle('filled', !!v);
-      b.classList.toggle('ok', !!v && v.ok);
-      b.classList.toggle('wait', !!v && !v.ok);
-      b.classList.toggle('moving', !!moving && moving.from === id);
-      b.querySelector('.nm').textContent = !v ? '' : (showReal && p ? p.name : v.n);
-      b.querySelector('.st').textContent = !v ? '' : (v.ok ? '출석완료' : '서명 전');
-      b.querySelector('.bd').textContent = showReal && p ? p.birth : '';
-    });
-    var c = data.counts || {};
-    $('sTotal').textContent = c.total || 0;
-    $('sSigned').textContent = c.signed || 0;
-    $('sLbl').textContent = (data.sessionLabel || '') + ' 출석';
-    $('sUpd').textContent = data.t || '-';
-    $('title').textContent = data.round ? data.title : '좌석 현황';
-    $('sessLbl').textContent = data.sessionLabel ? data.sessionLabel + ' 출석' : '-';
-
-    var msg = '';
-    if (data.noRound) msg = data.msg || '진행 중인 회차가 없습니다.';
-    else if (data.round && !data.eduOk) msg = '교육 당일에 출석 QR이 표시됩니다.';
-    $('qrMsg').textContent = msg;
-    $('qrMsg').classList.toggle('show', !!msg || !lastToken);
-
-    $('modeLbl').hidden = !admin; $('nameBtn').hidden = !admin; $('sessBtns').hidden = !admin;
-    $('proxyBtn').hidden = !admin; $('signBtn').hidden = !admin;
-    $('nameBtn').textContent = showReal ? '이름 가리기' : '실명 보기';
-    if (admin) renderSessBtns();
-  }
-
-  function renderSessBtns() {
-    var box = $('sessBtns');
-    var list = [{ no: 0, label: '교시 자동' }].concat((data.sessions || []).map(function (s) { return { no: s.no, label: s.no + '교시' }; }));
-    box.innerHTML = list.map(function (s) {
-      var on = (data.override || 0) === s.no;
-      return '<button type="button" class="light' + (on ? ' on' : '') + '" data-sess="' + s.no + '">' + esc(s.label) + '</button> ';
-    }).join('');
-    box.querySelectorAll('button').forEach(function (b) {
-      b.addEventListener('click', async function () {
-        try {
-          var r = await api('adminSession', { key: key, session: Number(b.dataset.sess) });
-          toast(r.ok ? '현재 ' + r.sessionLabel + '로 표시합니다.' : r.msg);
-        } catch (e) { toast('연결 오류'); }
-        refresh();
-      });
-    });
-  }
-
-  function updateQr() {
-    if (data.token && data.token !== lastToken) {
-      lastToken = data.token;
-      drawQr($('beamQr'), base + 'c.html?t=' + encodeURIComponent(data.token), 3);
-    }
-    if (!data.token) lastToken = '';
-    if (data.rotateSec) {
-      $('rotSec').textContent = data.rotateSec;
-      nextAt = Date.now() + (data.nextIn || data.rotateSec) * 1000;
-    }
-  }
-
-  async function refresh() {
-    try {
-      var res = await api('beamState', admin ? { key: key } : {});
-      if (!res.ok) {
-        if (admin && (res.code === 'KEY' || res.code === 'KEY_LOCK')) { admin = false; toast(res.msg); }
-        return;
-      }
-      data = res;
-      updateQr();
-      paint();
-    } catch (e) {}
-  }
-
-  function loop() {
-    setTimeout(function () { refresh().finally(loop); }, 3000);
-  }
-  setInterval(function () {
-    $('clock').textContent = APP.hhmmss();
-    if (nextAt && data.rotateSec) {
-      var left = Math.max(0, (nextAt - Date.now()) / 1000);
-      $('rotBar').style.width = (left / data.rotateSec * 100).toFixed(1) + '%';
-      if (left <= 0) { nextAt = 0; refresh(); }
-    }
-  }, 500);
-
-  // ---------- 전체화면 ----------
-  $('fsBtn').addEventListener('click', function () {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-    else toast('이 브라우저는 전체화면을 지원하지 않습니다. F11 키를 눌러 주세요.');
-  });
-  document.addEventListener('fullscreenchange', function () {
-    var fs = !!document.fullscreenElement;
-    document.body.classList.toggle('fs', fs);
-    $('fsBtn').textContent = fs ? '전체화면 종료' : '전체화면';
-  });
-
-  if (admin) {
-    $('proxyBtn').href = 'c.html?k=' + encodeURIComponent(key);
-    $('signBtn').href = 'sign.html?k=' + encodeURIComponent(key);
-  }
-  $('nameBtn').addEventListener('click', function () { showReal = !showReal; paint(); });
-
-  // ---------- 직원 모드: 좌석 해제 · 이동 · 배정 ----------
-  function sessText(p) {
-    return [1, 2, 3].map(function (k) { return k + '교시 ' + (p['s' + k] || '-'); }).join(' · ');
-  }
-
-  function onSeat(id) {
-    if (!admin) return;
-    var p = personBySeat(id);
-    if (moving) {
-      if (p) { toast('빈 좌석을 눌러 주세요.'); return; }
-      var m = moving; moving = null; $('moveBanner').classList.remove('show');
-      seatOp({ op: 'assign', seat: id, o: m.o }, m.name + ' → ' + APP.seatLabel(id) + ' 이동했습니다.');
-      return;
-    }
-    sheetSeat = id;
-    $('sheetSub').textContent = APP.seatLabel(id);
-    if (p) {
-      $('sheetTitle').textContent = p.name + ' (' + p.birth + ')';
-      $('sheetBody').innerHTML = '<p class="muted">' + esc(sessText(p)) + '</p>' +
-        '<div class="row2"><button class="btn secondary" id="moveBtn" type="button">다른 좌석으로 이동</button>' +
-        '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">좌석 해제</button></div>';
-      $('moveBtn').addEventListener('click', function () {
-        moving = { o: p.o, name: p.name, from: id };
-        $('moveText').textContent = p.name + ' 님을 옮길 빈 좌석을 누르세요';
-        $('moveBanner').classList.add('show');
-        $('sheetBg').classList.remove('show');
-        paint();
-      });
-      $('clearBtn').addEventListener('click', function () {
-        if (window.confirm(p.name + ' 님의 ' + APP.seatLabel(id) + ' 좌석을 해제할까요?')) seatOp({ op: 'clear', seat: id }, '좌석을 해제했습니다.');
-      });
-    } else {
-      $('sheetTitle').textContent = '빈 좌석 · 직접 배정';
-      $('sheetBody').innerHTML = '<input id="q" type="search" placeholder="이름 검색"><div id="pickList"></div>';
-      $('q').addEventListener('input', renderPick);
-      renderPick();
-    }
-    $('sheetBg').classList.add('show');
-  }
-
-  $('moveCancel').addEventListener('click', function () { moving = null; $('moveBanner').classList.remove('show'); paint(); });
-
-  function renderPick() {
-    var q = ($('q').value || '').replace(/\s/g, '');
-    var list = (data.people || []).filter(function (p) { return !q || p.name.indexOf(q) >= 0; });
-    list.sort(function (a, b) { return (a.seat ? 1 : 0) - (b.seat ? 1 : 0) || (a.name < b.name ? -1 : 1); });
-    $('pickList').innerHTML = list.slice(0, 100).map(function (p) {
-      var st = sessText(p) + (p.seat ? ' · 현재 ' + APP.seatLabel(p.seat) : '');
-      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + '<br>' + esc(st) + '</span></div>' +
-        '<button type="button" data-o="' + esc(p.o) + '" data-n="' + esc(p.name) + '">' + (p.seat ? '이리로 이동' : '배정') + '</button></div>';
-    }).join('') || '<p class="muted">대상이 없습니다.</p>';
-    $('pickList').querySelectorAll('button[data-o]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        seatOp({ op: 'assign', seat: sheetSeat, o: b.dataset.o }, b.dataset.n + ' → ' + APP.seatLabel(sheetSeat) + ' 배정했습니다.');
-      });
-    });
-  }
-
-  async function seatOp(body, okMsg) {
-    try {
-      var res = await api('adminSeat', Object.assign({ key: key }, body));
-      toast(res.ok ? okMsg : (res.msg || '처리하지 못했습니다.'));
-    } catch (e) { toast('연결 오류. 다시 시도해 주세요.'); }
-    $('sheetBg').classList.remove('show');
-    refresh();
-  }
-  $('closeSheet').addEventListener('click', function () { $('sheetBg').classList.remove('show'); });
-
-  paint();
-  refresh().finally(loop);
-})();
-</script>
-</body>
-</html>
+      var p = admin ?
