@@ -1,1 +1,359 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>보수교육 출석</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+  .head .org { font-size: 13px; color: var(--muted); }
+  .head h1 { margin: 0; }
+  .sess { display: inline-block; background: var(--primary); color: #fff; border-radius: 999px; padding: 3px 12px; font-weight: 800; font-size: 14px; }
+  .steps { display: flex; gap: 6px; margin: 8px 0 12px; }
+  .steps span { flex: 1; text-align: center; font-size: 13px; padding: 6px 0; border-radius: 8px; background: var(--card); border: 1px solid var(--line); color: var(--muted); font-weight: 700; }
+  .steps span.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .steps span.done { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .sign-guide { border: 2px solid #d10000; color: #d10000; border-radius: 12px; padding: 10px 12px; font-weight: 800; font-size: 15px; line-height: 1.5; }
+  .sign-guide small { display: block; font-weight: 600; font-size: 13px; }
+  .pad-wrap { position: relative; margin-top: 10px; border: 2px dashed #d10000; border-radius: 12px; background: #fff; touch-action: none; }
+  #pad { display: block; width: 100%; height: 170px; border-radius: 12px; cursor: crosshair; }
+  .pad-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #e8a0a0; font-size: 22px; font-weight: 800; pointer-events: none; }
+  .pad-tools { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+  .pad-tools button { background: transparent; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 12px; font-weight: 700; }
+  .done-box { background: #e3f4ea; color: #0f5e36; border-radius: 12px; padding: 12px 14px; font-weight: 700; }
+  .done-box b { font-size: 20px; }
+  .mine-box { font-size: 16px; font-weight: 700; }
+  .mine-box b { color: var(--primary); font-size: 22px; }
+  .status { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .btn.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+  .btn.small { padding: 10px; font-size: 14px; margin-top: 8px; }
+  .err-card { text-align: center; padding: 30px 16px; }
+  .err-card .big { font-size: 18px; font-weight: 800; color: var(--bad); }
+  .remain { font-size: 12px; color: var(--muted); text-align: right; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <span class="org" id="org"></span>
+    <h1 id="title">보수교육 출석</h1>
+    <div><span class="sess" id="sess" hidden></span></div>
+  </div>
+  <div class="steps" id="steps" hidden><span id="st1" class="on">① 본인 확인·서명</span><span id="st2">② 좌석 선택</span></div>
 
+  <!-- 불러오기 / 오류 -->
+  <div class="card err-card" id="msgCard"><div class="big" id="msgBig">확인 중입니다…</div><p class="muted" id="msgSmall"></p></div>
+
+  <!-- ① 본인 확인 + 서명 -->
+  <div class="card" id="formCard" hidden>
+    <h2>본인 확인</h2>
+    <label for="nm">이름</label>
+    <input id="nm" type="text" autocomplete="name" placeholder="홍길동">
+    <label for="bd">생년월일 6자리</label>
+    <input id="bd" type="tel" inputmode="numeric" maxlength="6" placeholder="예: 840817">
+    <label for="ph">휴대폰번호</label>
+    <input id="ph" type="tel" inputmode="numeric" maxlength="13" placeholder="010-0000-0000" autocomplete="tel">
+
+    <label style="margin-top:16px">서명</label>
+    <div class="sign-guide">아래 칸에 본인 이름을 정자로 또박또박 써 주세요.<small>서명은 빨간색으로 저장되어 출석부(서명부)에 그대로 인쇄됩니다.</small></div>
+    <div class="pad-wrap"><canvas id="pad"></canvas><div class="pad-ph" id="padPh">여기에 이름을 정자로 서명</div></div>
+    <div class="pad-tools"><span class="muted" id="padHint">손가락으로 쓰세요</span><button type="button" id="clearPad">다시 쓰기</button></div>
+
+    <button class="btn" id="submitBtn" type="button">서명 제출</button>
+    <div class="msg" id="formMsg"></div>
+    <div class="remain" id="remain"></div>
+  </div>
+
+  <!-- ② 좌석 -->
+  <div id="seatArea" hidden>
+    <div class="card">
+      <div class="done-box" id="doneBox"></div>
+      <div class="mine-box" style="margin-top:10px">내 좌석 <b id="meSeat">미지정</b></div>
+      <p class="muted" id="meHint" style="margin:6px 0 0"></p>
+      <div class="row2" id="editBtns" hidden>
+        <button class="btn secondary small" id="keepBtn" type="button">이 좌석이 맞습니다</button>
+        <button class="btn danger small" id="cancelSeatBtn" type="button">좌석 취소</button>
+      </div>
+    </div>
+    <div class="card" id="mapCard">
+      <div class="status"><span>앉은 좌석을 눌러 주세요</span><span>갱신 <span id="upd">-</span></span></div>
+      <div class="legend"><span><i style="background:var(--seat-free)"></i>빈 좌석</span><span><i style="background:var(--seat-taken)"></i>지정됨</span><span><i style="background:var(--seat-mine)"></i>내 좌석</span></div>
+      <div class="map-scroll" id="map"></div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet">
+    <div class="muted" id="sheetSub"></div>
+    <div class="big" id="sheetSeat"></div>
+    <div class="row2">
+      <button class="btn secondary" id="noBtn" type="button">아니요</button>
+      <button class="btn" id="okBtn" type="button">예</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+  var api = APP.api, store = APP.store, $ = function (id) { return document.getElementById(id); };
+  $('org').textContent = (APP.CFG.ORG_NAME || '') + ' 보수교육';
+
+  // ---------- 주소의 QR 정보 읽기 (읽은 뒤 주소창에서 지움 → 주소를 복사해 보내도 무효) ----------
+  var q = new URLSearchParams(location.search);
+  var beamT = q.get('t') || '';
+  var staffK = q.get('k') || '';
+  if (beamT || staffK) { try { history.replaceState(null, '', location.pathname); } catch (e) {} }
+  var ss = { get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+             set: function (k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+
+  var S = { ticket: '', round: '', session: 0, sessionLabel: '', validMin: 20, issued: 0, staff: !!staffK, me: null, state: { seats: {} } };
+
+  function toast(t) {
+    var el = $('toast'); el.textContent = t; el.classList.add('show');
+    clearTimeout(toast.tm); toast.tm = setTimeout(function () { el.classList.remove('show'); }, 2800);
+  }
+  function showMsg(big, small) {
+    $('msgCard').hidden = false; $('formCard').hidden = true; $('seatArea').hidden = true;
+    $('msgBig').textContent = big; $('msgSmall').textContent = small || '';
+  }
+
+  // ---------- 시작 ----------
+  async function start() {
+    var saved = null;
+    try { saved = JSON.parse(ss.get('ck_ticket') || 'null'); } catch (e) {}
+    if (!beamT && !staffK && saved && saved.ticket) {
+      Object.assign(S, saved);
+      return openForm();
+    }
+    if (!beamT && !staffK) return showMsg('교육장 화면의 QR을 촬영해 주세요.', '빔 화면에 표시된 출석 QR을 휴대폰 카메라로 찍으면 이 화면이 열립니다.');
+    try {
+      var res = await api('checkStart', staffK ? { key: staffK } : { t: beamT });
+      if (!res.ok) return showMsg(res.msg || '출석 QR을 확인할 수 없습니다.', '교육장 화면의 QR을 다시 촬영해 주세요.');
+      S.ticket = res.ticket; S.round = String(res.round); S.session = res.session; S.sessionLabel = res.sessionLabel;
+      S.title = res.title; S.validMin = res.validMin; S.issued = Date.now();
+      ss.set('ck_ticket', JSON.stringify({ ticket: S.ticket, round: S.round, session: S.session, sessionLabel: S.sessionLabel, title: S.title, validMin: S.validMin, issued: S.issued, staff: S.staff }));
+      openForm();
+    } catch (e) {
+      showMsg('연결이 원활하지 않습니다.', '와이파이 또는 데이터 연결을 확인한 뒤 교육장 화면의 QR을 다시 촬영해 주세요.');
+    }
+  }
+
+  function openForm() {
+    $('title').textContent = S.title || '보수교육 출석';
+    $('sess').textContent = S.sessionLabel + ' 출석'; $('sess').hidden = false;
+    $('steps').hidden = false;
+    $('msgCard').hidden = true; $('formCard').hidden = false; $('seatArea').hidden = true;
+    // 2·3교시 편의: 이 휴대폰에 저장된 본인 정보 자동 입력 (직원 대리입력 시 제외)
+    if (!S.staff) {
+      var mem = store.getJSON('ck_me');
+      if (mem && mem.round === S.round) { $('nm').value = mem.name || ''; $('bd').value = mem.birth || ''; $('ph').value = mem.phone || ''; }
+    }
+    setTimeout(resizePad, 0);
+  }
+
+  setInterval(function () {
+    if (!S.issued || $('formCard').hidden) return;
+    var left = S.validMin * 60 - (Date.now() - S.issued) / 1000;
+    $('remain').textContent = left > 0 ? '입력 가능 시간 ' + Math.floor(left / 60) + '분 ' + Math.floor(left % 60) + '초 남음' : '입력 시간이 지났습니다. QR을 다시 촬영해 주세요.';
+  }, 1000);
+
+  // ---------- 휴대폰번호 자동 하이픈 ----------
+  $('ph').addEventListener('input', function () {
+    var d = this.value.replace(/\D/g, '').slice(0, 11);
+    this.value = d.length > 7 ? d.slice(0, 3) + '-' + d.slice(3, d.length - 4) + '-' + d.slice(-4) : d.length > 3 ? d.slice(0, 3) + '-' + d.slice(3) : d;
+  });
+  $('bd').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 6); });
+
+  // ---------- 서명 패드 (빨간색) ----------
+  var pad = $('pad'), pctx = pad.getContext('2d'), drawing = false, last = null, inkLen = 0, strokes = [];
+  var INK = '#d10000';
+  function resizePad() {
+    var r = pad.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    if (!r.width) return;
+    pad.width = Math.round(r.width * dpr); pad.height = Math.round(r.height * dpr);
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    redraw();
+  }
+  function lineStyle(c) { c.strokeStyle = INK; c.lineWidth = 3.2; c.lineCap = 'round'; c.lineJoin = 'round'; }
+  function redraw() {
+    var r = pad.getBoundingClientRect();
+    pctx.clearRect(0, 0, r.width, r.height); lineStyle(pctx);
+    strokes.forEach(function (s) {
+      pctx.beginPath(); s.forEach(function (p, i) { if (i) pctx.lineTo(p[0] * r.width, p[1] * r.height); else pctx.moveTo(p[0] * r.width, p[1] * r.height); });
+      if (s.length === 1) pctx.lineTo(s[0][0] * r.width + .1, s[0][1] * r.height);
+      pctx.stroke();
+    });
+    $('padPh').style.display = strokes.length ? 'none' : 'flex';
+  }
+  function pos(e) { var r = pad.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; }
+  pad.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); pad.setPointerCapture(e.pointerId); drawing = true; last = pos(e); strokes.push([last]); redraw();
+  });
+  pad.addEventListener('pointermove', function (e) {
+    if (!drawing) return; e.preventDefault();
+    var p = pos(e), r = pad.getBoundingClientRect();
+    inkLen += Math.hypot((p[0] - last[0]) * r.width, (p[1] - last[1]) * r.height);
+    strokes[strokes.length - 1].push(p); last = p;
+    lineStyle(pctx); pctx.beginPath();
+    var s = strokes[strokes.length - 1], a = s[s.length - 2];
+    pctx.moveTo(a[0] * r.width, a[1] * r.height); pctx.lineTo(p[0] * r.width, p[1] * r.height); pctx.stroke();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { pad.addEventListener(ev, function () { drawing = false; }); });
+  $('clearPad').addEventListener('click', function () { strokes = []; inkLen = 0; redraw(); });
+  window.addEventListener('resize', resizePad);
+
+  // 서명 이미지 만들기: 여백을 잘라내고 가로 360px 이하 투명 PNG (빨간 선)
+  function signImage() {
+    var xs = [], ys = [];
+    strokes.forEach(function (s) { s.forEach(function (p) { xs.push(p[0]); ys.push(p[1]); }); });
+    var r = pad.getBoundingClientRect();
+    var minX = Math.min.apply(null, xs) * r.width, maxX = Math.max.apply(null, xs) * r.width;
+    var minY = Math.min.apply(null, ys) * r.height, maxY = Math.max.apply(null, ys) * r.height;
+    var padPx = 8, w = Math.max(40, maxX - minX + padPx * 2), h = Math.max(30, maxY - minY + padPx * 2);
+    var scale = Math.min(1.4, 360 / w, 140 / h);
+    var c = document.createElement('canvas'); c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+    var x = c.getContext('2d'); lineStyle(x); x.lineWidth = 4.6 * scale;
+    strokes.forEach(function (s) {
+      x.beginPath();
+      s.forEach(function (p, i) {
+        var px = (p[0] * r.width - minX + padPx) * scale, py = (p[1] * r.height - minY + padPx) * scale;
+        if (i) x.lineTo(px, py); else x.moveTo(px, py);
+      });
+      if (s.length === 1) x.lineTo((s[0][0] * r.width - minX + padPx) * scale + .1, (s[0][1] * r.height - minY + padPx) * scale);
+      x.stroke();
+    });
+    return c.toDataURL('image/png');
+  }
+
+  // ---------- 제출 ----------
+  $('submitBtn').addEventListener('click', async function () {
+    var msg = $('formMsg');
+    var name = $('nm').value.trim(), birth = $('bd').value.replace(/\D/g, ''), phone = $('ph').value.replace(/\D/g, '');
+    if (!name) { msg.className = 'msg bad'; msg.textContent = '이름을 입력해 주세요.'; return; }
+    if (birth.length !== 6) { msg.className = 'msg bad'; msg.textContent = '생년월일 6자리를 입력해 주세요. (예: 840817)'; return; }
+    if (phone.length < 10) { msg.className = 'msg bad'; msg.textContent = '휴대폰번호를 정확히 입력해 주세요.'; return; }
+    if (inkLen < 60) { msg.className = 'msg bad'; msg.textContent = '서명란에 이름을 정자로 서명해 주세요.'; return; }
+    var btn = this; btn.disabled = true; msg.className = 'msg'; msg.textContent = '저장 중입니다…';
+    try {
+      var res = await api('checkin', { ticket: S.ticket, name: name, birth: birth, phone: phone, sign: signImage() }, 30000);
+      if (!res.ok) {
+        msg.className = 'msg bad'; msg.textContent = res.msg || '저장하지 못했습니다.';
+        if (res.code === 'TICKET') { try { sessionStorage.removeItem('ck_ticket'); } catch (e) {} }
+        return;
+      }
+      msg.textContent = '';
+      S.me = { round: String(res.round), o: res.o, t: res.t, name: res.name, seat: res.seat || '', allowChange: res.allowChange };
+      if (!S.staff) store.setJSON('ck_me', { round: S.round, name: name, birth: birth, phone: $('ph').value });
+      $('doneBox').innerHTML = APP.esc(res.name) + ' 님 <b>' + APP.esc(res.sessionLabel) + ' 출석 완료</b><br><span style="font-weight:500">' +
+        APP.esc(res.time) + (res.resign ? ' · 서명을 새로 저장했습니다' : '') + '</span>';
+      if (S.staff) {
+        $('doneBox').innerHTML += '<br><a class="btn small" href="c.html?k=' + encodeURIComponent(staffK) + '">다음 사람 대리입력</a>';
+      }
+      openSeats();
+    } catch (e) {
+      msg.className = 'msg bad'; msg.textContent = '연결이 원활하지 않습니다. [서명 제출]을 다시 눌러 주세요.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---------- ② 좌석 ----------
+  var picking = null, sheetMode = 'pick';
+  APP.renderSeatMap($('map'), { onSeat: onSeat });
+
+  function openSeats() {
+    $('formCard').hidden = true; $('seatArea').hidden = false;
+    $('st1').className = 'done'; $('st2').className = 'on';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    paint(); refresh(); loop();
+  }
+
+  function paint() {
+    var me = S.me || {};
+    APP.updateSeats($('map'), function (id, b) {
+      var who = S.state.seats[id], mine = me.seat === id;
+      b.classList.toggle('mine', !!mine);
+      b.classList.toggle('taken', !!who && !mine);
+      b.classList.toggle('pick', picking === id);
+      b.querySelector('.nm').textContent = mine ? '나' : '';
+    });
+    $('upd').textContent = S.state.t || '-';
+    $('meSeat').textContent = me.seat ? APP.seatLabel(me.seat) : '미지정';
+    $('editBtns').hidden = !me.seat || me.allowChange === false;
+    $('meHint').textContent = !me.seat ? '아래 배치도에서 앉은 자리를 눌러 주세요.'
+      : (me.allowChange === false ? '좌석 변경은 직원에게 요청해 주세요.' : '잘못 누른 경우 아래 배치도에서 맞는 좌석을 누르면 변경됩니다.');
+  }
+
+  async function refresh() {
+    try {
+      var res = await api('seatState', {});
+      if (!res.ok) return;
+      S.state = res;
+      if (S.me && S.me.seat && !res.seats[S.me.seat]) S.me.seat = '';   // 직원이 해제한 경우
+      paint();
+    } catch (e) {}
+  }
+  var looping = false;
+  function loop() {
+    if (looping) return; looping = true;
+    (function tick() {
+      setTimeout(function () { if (!document.hidden) refresh().finally(tick); else tick(); }, S.me && S.me.seat ? 15000 : 4000);
+    })();
+  }
+
+  function onSeat(id) {
+    var me = S.me;
+    if (!me) return;
+    if (me.seat === id) { toast('현재 내 좌석입니다.'); return; }
+    if (S.state.seats[id]) { toast('이미 다른 분이 지정한 좌석입니다.'); return; }
+    if (me.seat && me.allowChange === false) { toast('좌석 변경은 직원에게 요청해 주세요.'); return; }
+    sheetMode = 'pick'; picking = id;
+    $('sheetSub').textContent = me.seat ? APP.seatLabel(me.seat) + '에서 아래 좌석으로 변경할까요?' : '이 좌석으로 지정할까요?';
+    $('sheetSeat').textContent = APP.seatLabel(id);
+    $('okBtn').textContent = me.seat ? '변경' : '지정';
+    $('sheetBg').classList.add('show'); paint();
+  }
+
+  $('keepBtn').addEventListener('click', function () { toast('출석과 좌석 지정이 완료되었습니다. 감사합니다.'); });
+  $('cancelSeatBtn').addEventListener('click', function () {
+    if (!S.me || !S.me.seat) return;
+    sheetMode = 'cancel'; picking = S.me.seat;
+    $('sheetSub').textContent = '지정한 좌석을 취소할까요?';
+    $('sheetSeat').textContent = APP.seatLabel(S.me.seat) + ' 취소';
+    $('okBtn').textContent = '취소하기';
+    $('sheetBg').classList.add('show'); paint();
+  });
+  function closeSheet() { picking = null; $('sheetBg').classList.remove('show'); paint(); }
+  $('noBtn').addEventListener('click', closeSheet);
+  $('okBtn').addEventListener('click', async function () {
+    var btn = this; btn.disabled = true;
+    try {
+      var res = sheetMode === 'cancel'
+        ? await api('seatCancel', { o: S.me.o, t: S.me.t })
+        : await api('seatPick', { o: S.me.o, t: S.me.t, seat: picking });
+      if (res.seats) S.state = res;
+      if (res.ok) {
+        S.me.seat = res.mySeat || '';
+        toast(sheetMode === 'cancel' ? '좌석을 취소했습니다. 앉은 자리를 다시 눌러 주세요.' : APP.seatLabel(S.me.seat) + ' 좌석으로 지정되었습니다.');
+      } else {
+        toast(res.msg || '처리하지 못했습니다.');
+      }
+    } catch (e) {
+      toast('연결이 원활하지 않습니다. 다시 시도해 주세요.');
+    } finally {
+      btn.disabled = false; closeSheet();
+    }
+  });
+
+  start();
+})();
+</script>
+</body>
+</html>
