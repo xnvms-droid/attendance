@@ -78,6 +78,9 @@
   .person { display: flex; justify-content: space-between; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--line); gap: 8px; }
   .person button { padding: 8px 12px; border: 0; border-radius: 8px; background: #1f5fbf; color: #fff; font-weight: 700; white-space: nowrap; }
   #pickList { max-height: 46vh; overflow: auto; }
+  .seat.devwarn { box-shadow: inset 0 0 0 3px #e67e00; }
+  .seat.devwarn::after { content: '⚠'; position: absolute; top: 1px; right: 3px; font-size: 1.1em; color: #e67e00; }
+  .devtag { display: inline-block; background: #fff3e0; color: #b85c00; border: 1px solid #e67e00; border-radius: 6px; padding: 1px 6px; font-size: 12px; font-weight: 800; margin-left: 4px; }
   .tel { color: #1f5fbf; font-weight: 700; text-decoration: none; white-space: nowrap; }
   .tel:hover { text-decoration: underline; }
   .pfilter { display: flex; gap: 6px; margin: 8px 0 2px; flex-wrap: wrap; }
@@ -241,6 +244,7 @@
       b.classList.toggle('ok', !!v && v.ok);
       b.classList.toggle('wait', !!v && !v.ok);
       b.classList.toggle('moving', !!moving && moving.from === id);
+      b.classList.toggle('devwarn', !!(admin && p && p.devFlag));   // 직원 화면에만 기기 다름 표시
       b.querySelector('.nm').textContent = !v ? '' : (showReal && p ? p.name : v.n);
       b.querySelector('.st').textContent = !v ? '' : (v.ok ? '출석완료' : '서명 전');
       b.querySelector('.bd').textContent = showReal && p ? p.birth : '';
@@ -358,6 +362,7 @@
     if (p) {
       $('sheetTitle').textContent = p.name + ' (' + p.birth + ')';
       $('sheetBody').innerHTML = '<p>' + telHtml(p) + (p.org ? ' <span class="muted">· ' + esc(p.org) + '</span>' : '') + '</p>' +
+        (p.devFlag ? '<p><span class="devtag">⚠ ' + esc(p.devFlag) + '</span> <span class="muted">처음 출석한 휴대폰과 다른 기기로 출석했습니다. 좌석의 본인 여부를 확인해 주세요.</span></p>' : '') +
         '<p class="muted">' + esc(sessText(p)) + '</p>' +
         '<div class="row2"><button class="btn secondary" id="moveBtn" type="button">다른 좌석으로 이동</button>' +
         '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">좌석 해제</button></div>';
@@ -406,7 +411,7 @@
     $('sheetTitle').textContent = '명단·연락처';
     $('sheetBody').innerHTML =
       '<input id="lq" type="search" placeholder="이름 또는 연락처 검색">' +
-      '<div class="pfilter"><button type="button" data-f="absent">현재 교시 미출석</button><button type="button" data-f="all">전체</button></div>' +
+      '<div class="pfilter"><button type="button" data-f="absent">현재 교시 미출석</button><button type="button" data-f="dev">기기 다름</button><button type="button" data-f="all">전체</button></div>' +
       '<div id="pickList"></div>';
     $('lq').addEventListener('input', renderList);
     $('sheetBody').querySelectorAll('.pfilter button').forEach(function (b) {
@@ -420,12 +425,18 @@
     var sess = data.session || 1, q = ($('lq').value || '').replace(/\s/g, '');
     $('sheetBody').querySelectorAll('.pfilter button').forEach(function (b) { b.classList.toggle('on', b.dataset.f === listFilter); });
     var all = data.people || [];
-    var list = all.filter(function (p) { return (listFilter === 'all' || !p['s' + sess]) && matchQ(p, q); });
+    var list = all.filter(function (p) {
+      var okF = listFilter === 'all' || (listFilter === 'dev' ? !!p.devFlag : !p['s' + sess]);
+      return okF && matchQ(p, q);
+    });
     list.sort(function (a, b) { return (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
-    var head = '<p class="muted">' + (listFilter === 'all' ? '전체 ' + all.length + '명' : sess + '교시 미출석 ' + all.filter(function (p) { return !p['s' + sess]; }).length + '명') + (q ? ' · 검색 결과 ' + list.length + '명' : '') + '</p>';
+    var headTx = listFilter === 'all' ? '전체 ' + all.length + '명'
+      : listFilter === 'dev' ? '기기 다름 ' + all.filter(function (p) { return p.devFlag; }).length + '명'
+      : sess + '교시 미출석 ' + all.filter(function (p) { return !p['s' + sess]; }).length + '명';
+    var head = '<p class="muted">' + headTx + (q ? ' · 검색 결과 ' + list.length + '명' : '') + '</p>';
     $('pickList').innerHTML = head + (list.map(function (p) {
       var st = sessText(p) + (p.seat ? ' · ' + APP.seatLabel(p.seat) : ' · 좌석 미지정');
-      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + (p.org ? ' · ' + esc(p.org) : '') + '</span><br><span class="muted">' + esc(st) + '</span></div>' + telHtml(p) + '</div>';
+      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + (p.org ? ' · ' + esc(p.org) : '') + '</span>' + (p.devFlag ? '<span class="devtag">⚠ ' + esc(p.devFlag) + '</span>' : '') + '<br><span class="muted">' + esc(st) + '</span></div>' + telHtml(p) + '</div>';
     }).join('') || '<p class="muted">대상이 없습니다.</p>');
   }
   $('listBtn').addEventListener('click', openList);
