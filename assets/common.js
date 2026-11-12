@@ -51,18 +51,25 @@
     setJSON: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   };
 
-  // ---------- 직원키 (직원용 링크 ?k=... 로 한 번 열면 기기에 저장, 주소창에서는 지움) ----------
+  // ---------- 직원키 ----------
+  // 직원용 링크(?k=...)로 연 "그 탭"에서만 직원 모드가 유지됩니다. (sessionStorage = 탭 단위 저장)
+  // 같은 컴퓨터에서 공개 빔 화면(board.html)을 다른 탭·창으로 열면 직원 모드가 아닙니다.
+  var tabStore = {
+    get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+  };
   function staffKey() {
+    store.del('staff_key');   // 예전 버전이 브라우저 전체에 저장해 둔 직원키 삭제
     var q = new URLSearchParams(location.search);
     var k = q.get('k');
     if (k) {
-      store.set('staff_key', k);
+      tabStore.set('staff_key', k);
       q.delete('k');
       var rest = q.toString();
       try { history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash); } catch (e) {}
       return k;
     }
-    return store.get('staff_key') || '';
+    return tabStore.get('staff_key') || '';
   }
 
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
@@ -127,72 +134,4 @@
     // 문표시 | 줄번호 | 2 | 통로 | 3 | 통로 | 3 | 통로 | 2 | 창문표시
     grid.style.gridTemplateColumns =
       'var(--door-w) var(--rowlab-w) repeat(2, var(--seat-w)) var(--aisle) repeat(3, var(--seat-w)) var(--aisle) ' +
-      'repeat(3, var(--seat-w)) var(--aisle) repeat(2, var(--seat-w)) var(--door-w)';
-    grid.style.gridTemplateRows = 'auto';   // 첫 줄(좌석 번호 머리글)은 내용 높이만큼
-
-    function cell(cls, text, row, col) {
-      var d = document.createElement('div');
-      d.className = cls;
-      d.textContent = text;
-      d.style.gridRow = row;
-      d.style.gridColumn = col;
-      grid.appendChild(d);
-      return d;
-    }
-
-    function seat(id, row, col) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'seat';
-      b.dataset.id = id;
-      b.title = seatLabel(id) + ' · ' + seatDesc(id);
-      b.style.gridRow = row;
-      b.style.gridColumn = col;
-      b.innerHTML = '<span class="no">' + id + '</span><span class="nm"></span>';
-      if (opt.onSeat) b.addEventListener('click', function () { opt.onSeat(id, b); });
-      grid.appendChild(b);
-      return b;
-    }
-
-    // 머리글: 좌석 번호 1~10 (스크린을 볼 때 왼쪽부터)
-    cell('colhead corner', '줄＼번', 1, 2);
-    for (var h = 1; h <= 10; h++) cell('colhead', h + '번', 1, gridCol(h));
-
-    for (var r = 1; r <= LAYOUT.rows; r++) {
-      cell('rowlab', r + '열', r + 1, 2);
-      for (var c = 1; c <= 10; c++) seat(r + '-' + c, r + 1, gridCol(c));
-    }
-    // 9열: 오른쪽 2석 묶음 아래에 3석 (배치도와 동일)
-    cell('rowlab', LAYOUT.backRow + '열', LAYOUT.backRow + 1, 2);
-    var back = document.createElement('div');
-    back.className = 'back-row';
-    back.style.gridRow = LAYOUT.backRow + 1;
-    back.style.gridColumn = gridCol(9) + ' / ' + (gridCol(10) + 1);
-    grid.appendChild(back);
-    for (var k = 1; k <= LAYOUT.backCount; k++) {
-      var b = seat(LAYOUT.backRow + '-' + k, 1, k);
-      back.appendChild(b);
-    }
-
-    cell('door left', '앞문 ▶', 2, 1);
-    cell('door left', '뒷문 ▶', LAYOUT.backRow + 1, 1);
-    cell('door right', '◀ 창문', 6, gridCol(10) + 1);
-
-    room.appendChild(grid);
-    var desk = document.createElement('div');
-    desk.className = 'staff-desk';
-    desk.textContent = '직원책상 (뒤)';
-    room.appendChild(desk);
-    el.appendChild(room);
-    return room;
-  }
-
-  function updateSeats(el, fill) {
-    el.querySelectorAll('.seat').forEach(function (b) { fill(b.dataset.id, b); });
-  }
-
-  window.APP = {
-    CFG: CFG, api: api, hmac: hmac, store: store, staffKey: staffKey, hhmmss: hhmmss, esc: esc,
-    seatLabel: seatLabel, seatDesc: seatDesc, renderSeatMap: renderSeatMap, updateSeats: updateSeats
-  };
-})();
+      'repeat(3, var(--seat-w)) var(--aisle)
