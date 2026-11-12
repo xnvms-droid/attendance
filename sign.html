@@ -1,1 +1,105 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>서명부</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e9ebef; color: #000; font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 16px; background: #1d2129; color: #fff; font-size: 14px; }
+  .bar input { width: 70px; padding: 6px 8px; border-radius: 6px; border: 0; font-size: 14px; }
+  .bar button { border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .bar .p { background: #1f5fbf; color: #fff; }
+  .bar .sp { flex: 1; }
+  #msg { padding: 30px; text-align: center; font-size: 16px; }
 
+  /* A4 가로 한 장 = 표 1개 (원본 서명부와 같은 열 구성) */
+  .page { width: 297mm; height: 210mm; margin: 10mm auto; background: #fff; padding: 9mm 10mm; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: flex; flex-direction: column; }
+  .page h1 { text-align: center; font-size: 17pt; margin: 0 0 4mm; letter-spacing: .5px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; flex: 1; }
+  th, td { border: 1px solid #000; text-align: center; vertical-align: middle; font-size: 10.5pt; padding: 0 1.5mm; overflow: hidden; }
+  th { background: #dde9f7; font-weight: 700; height: 8mm; }
+  td { height: 10.1mm; }
+  td.org { font-size: 9.5pt; }
+  td.sg { padding: .6mm 1mm; }
+  td.sg img { max-width: 100%; max-height: 9mm; display: block; margin: 0 auto; }
+  col.c-no { width: 5%; } col.c-nm { width: 8%; } col.c-bd { width: 9%; } col.c-org { width: 30%; } col.c-s { width: 16%; }
+
+  @media print {
+    @page { size: A4 landscape; margin: 0; }
+    body { background: #fff; }
+    .bar, #msg { display: none !important; }
+    .page { margin: 0; box-shadow: none; page-break-after: always; break-after: page; }
+    .page:last-child { page-break-after: auto; break-after: auto; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <b>서명부</b>
+  <label>회차 <input id="round" type="text" inputmode="numeric" placeholder="자동"></label>
+  <button class="p" id="loadBtn" type="button">불러오기</button>
+  <span id="info"></span>
+  <span class="sp"></span>
+  <button class="p" id="printBtn" type="button">인쇄 / PDF 저장</button>
+</div>
+<div id="msg">불러오는 중입니다…</div>
+<div id="pages"></div>
+
+<script src="config.js"></script>
+<script src="assets/common.js"></script>
+<script>
+(function () {
+  'use strict';
+  var key = APP.staffKey(), esc = APP.esc;
+  var ROWS_PER_PAGE = 17;
+  var $ = function (id) { return document.getElementById(id); };
+
+  async function load() {
+    if (!key) { $('msg').textContent = '직원용 링크(직원 현황판의 [서명부 인쇄])로 접속해 주세요.'; return; }
+    $('msg').hidden = false; $('msg').textContent = '불러오는 중입니다… (서명 이미지가 많으면 10초 정도 걸릴 수 있습니다)';
+    $('pages').innerHTML = '';
+    try {
+      var body = { key: key };
+      if ($('round').value.trim()) body.round = $('round').value.trim();
+      var res = await APP.api('signSheet', body, 60000);
+      if (!res.ok) { $('msg').textContent = res.msg || '불러오지 못했습니다.'; return; }
+      render(res);
+      $('msg').hidden = true;
+    } catch (e) {
+      $('msg').textContent = '연결 오류입니다. 다시 불러와 주세요.';
+    }
+  }
+
+  function render(res) {
+    var cnt = [0, 0, 0];
+    res.rows.forEach(function (r) { r.s.forEach(function (s, i) { if (s) cnt[i]++; }); });
+    $('info').textContent = '오프라인 ' + res.round + '차 · ' + res.rows.length + '명 · 서명 ' + cnt.map(function (c, i) { return (i + 1) + '교시 ' + c; }).join(' / ');
+    $('round').value = res.round;
+    document.title = '서명부_오프라인' + res.round + '차';
+    var html = '';
+    for (var p = 0; p < Math.max(1, Math.ceil(res.rows.length / ROWS_PER_PAGE)); p++) {
+      var part = res.rows.slice(p * ROWS_PER_PAGE, (p + 1) * ROWS_PER_PAGE);
+      html += '<section class="page">' + (p === 0 ? '<h1>[' + esc(res.title) + '] 교육생명단</h1>' : '') +
+        '<table><colgroup><col class="c-no"><col class="c-nm"><col class="c-bd"><col class="c-org"><col class="c-s"><col class="c-s"><col class="c-s"></colgroup>' +
+        '<thead><tr><th>연번</th><th>성명</th><th>생년월일</th><th>소속</th><th>1교시</th><th>2교시</th><th>3교시</th></tr></thead><tbody>';
+      part.forEach(function (r) {
+        html += '<tr><td>' + r.no + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.birth) + '</td><td class="org">' + esc(r.org) + '</td>' +
+          r.s.map(function (s) { return '<td class="sg">' + (s ? '<img alt="서명" src="' + esc(s) + '">' : '') + '</td>'; }).join('') + '</tr>';
+      });
+      for (var k = part.length; k < ROWS_PER_PAGE; k++) html += '<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+      html += '</tbody></table></section>';
+    }
+    $('pages').innerHTML = html;
+  }
+
+  $('loadBtn').addEventListener('click', load);
+  $('printBtn').addEventListener('click', function () { window.print(); });
+  load();
+})();
+</script>
+</body>
+</html>
