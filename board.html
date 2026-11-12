@@ -429,17 +429,18 @@
     $('sheetBody').querySelectorAll('.pfilter button').forEach(function (b) { b.classList.toggle('on', b.dataset.f === listFilter); });
     var all = data.people || [];
     var list = all.filter(function (p) {
-      var okF = listFilter === 'all' || (listFilter === 'dev' ? !!p.devFlag : !p['s' + sess]);
+      var okF = listFilter === 'all' || (listFilter === 'dev' ? !!p.devFlag : (!p['s' + sess] && !p.absent));
       return okF && matchQ(p, q);
     });
     list.sort(function (a, b) { return (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
     var headTx = listFilter === 'all' ? '전체 ' + all.length + '명'
       : listFilter === 'dev' ? '기기 다름 ' + all.filter(function (p) { return p.devFlag; }).length + '명'
-      : sess + '교시 미출석 ' + all.filter(function (p) { return !p['s' + sess]; }).length + '명';
+      : sess + '교시 미출석 ' + all.filter(function (p) { return !p['s' + sess] && !p.absent; }).length + '명' +
+        (all.some(function (p) { return p.absent; }) ? ' (당일불참 ' + all.filter(function (p) { return p.absent; }).length + '명 제외)' : '');
     var head = '<p class="muted">' + headTx + (q ? ' · 검색 결과 ' + list.length + '명' : '') + '</p>';
     $('pickList').innerHTML = head + (list.map(function (p) {
       var st = sessText(p) + (p.seat ? ' · ' + APP.seatLabel(p.seat) : ' · 좌석 미지정');
-      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + (p.org ? ' · ' + esc(p.org) : '') + '</span>' + (p.devFlag ? '<span class="devtag">⚠ ' + esc(p.devFlag) + '</span>' : '') + '<br><span class="muted">' + esc(st) + '</span></div>' + telHtml(p) + '</div>';
+      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + (p.org ? ' · ' + esc(p.org) : '') + '</span>' + (p.devFlag ? '<span class="devtag">⚠ ' + esc(p.devFlag) + '</span>' : '') + (p.absent ? '<span class="devtag" style="color:#d10000;border-color:#d10000;background:#fff1f1">당일불참</span>' : '') + '<br><span class="muted">' + esc(st) + '</span></div>' + telHtml(p) + '</div>';
     }).join('') || '<p class="muted">대상이 없습니다.</p>');
   }
   $('listBtn').addEventListener('click', openList);
