@@ -57,7 +57,7 @@
     <input id="ph" type="tel" inputmode="numeric" maxlength="13" placeholder="010-0000-0000" autocomplete="tel">
 
     <label style="margin-top:16px">서명</label>
-    <div class="sign-guide">아래 칸에 본인 이름을 정자로 또박또박 써 주세요.<small>서명은 빨간색으로 저장되어 출석부(서명부)에 그대로 인쇄됩니다.</small></div>
+    <div class="sign-guide">아래 칸에 본인 이름을 정자로 또박또박 써 주세요.<small>서명은 출석부(서명부)에 그대로 인쇄됩니다.</small></div>
     <div class="pad-wrap"><canvas id="pad"></canvas><div class="pad-ph" id="padPh">여기에 이름을 정자로 서명</div></div>
     <div class="pad-tools"><span class="muted" id="padHint">손가락으로 쓰세요</span><button type="button" id="clearPad">다시 쓰기</button></div>
 
@@ -171,9 +171,9 @@
   });
   $('bd').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 6); });
 
-  // ---------- 서명 패드 (빨간색) ----------
+  // ---------- 서명 패드 (안내는 빨간색, 실제 서명은 검정색) ----------
   var pad = $('pad'), pctx = pad.getContext('2d'), drawing = false, last = null, inkLen = 0, strokes = [];
-  var INK = '#d10000';
+  var INK = '#111111';   // 실제 서명은 검정색
   function resizePad() {
     var r = pad.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     if (!r.width) return;
@@ -209,7 +209,7 @@
   $('clearPad').addEventListener('click', function () { strokes = []; inkLen = 0; redraw(); });
   window.addEventListener('resize', resizePad);
 
-  // 서명 이미지 만들기: 여백을 잘라내고 가로 360px 이하 투명 PNG (빨간 선)
+  // 서명 이미지 만들기: 여백을 잘라내고 가로 360px 이하 투명 PNG (검정 선)
   function signImage() {
     var xs = [], ys = [];
     strokes.forEach(function (s) { s.forEach(function (p) { xs.push(p[0]); ys.push(p[1]); }); });
