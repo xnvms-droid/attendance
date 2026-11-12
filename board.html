@@ -77,6 +77,11 @@
   .person { display: flex; justify-content: space-between; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--line); gap: 8px; }
   .person button { padding: 8px 12px; border: 0; border-radius: 8px; background: #1f5fbf; color: #fff; font-weight: 700; white-space: nowrap; }
   #pickList { max-height: 46vh; overflow: auto; }
+  .tel { color: #1f5fbf; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .tel:hover { text-decoration: underline; }
+  .pfilter { display: flex; gap: 6px; margin: 8px 0 2px; flex-wrap: wrap; }
+  .pfilter button { border: 1px solid #c9ced6; background: #fff; color: #1d2129; border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .pfilter button.on { background: #1d2129; color: #fff; border-color: #1d2129; }
 
   @media (max-width: 900px), (max-aspect-ratio: 1/1) {
     .beam { grid-template-columns: 1fr; height: auto; }
@@ -120,6 +125,7 @@
   <span class="mode" id="modeLbl" hidden>직원 모드</span>
   <span id="sessBtns" hidden></span>
   <button class="light" id="nameBtn" type="button" hidden>실명 보기</button>
+  <button class="light" id="listBtn" type="button" hidden>명단·연락처</button>
   <a class="light" id="proxyBtn" href="#" target="_blank" rel="noopener" hidden>현장 대리입력</a>
   <a class="light" id="signBtn" href="#" target="_blank" rel="noopener" hidden>서명부 인쇄</a>
   <button id="fsBtn" type="button">전체화면</button>
@@ -194,6 +200,22 @@
     return s.charAt(0) + new Array(s.length - 1).join('○') + s.charAt(s.length - 1);
   }
 
+  // 연락처 표시 (직원 모드 전용) : 01045406906 → 010-4540-6906, 누르면 전화 걸기
+  function fmtPhone(d) {
+    d = String(d || '').replace(/\D/g, '');
+    if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    return d;
+  }
+  function telHtml(p) {
+    return p.phone ? '<a class="tel" href="tel:' + esc(p.phone) + '">☎ ' + esc(fmtPhone(p.phone)) + '</a>' : '<span class="muted">연락처 없음</span>';
+  }
+  function matchQ(p, q) {
+    if (!q) return true;
+    var dq = q.replace(/\D/g, '');
+    return p.name.indexOf(q) >= 0 || (dq.length >= 3 && String(p.phone || '').indexOf(dq) >= 0);
+  }
+
   function personBySeat(id) {
     return (data.people || []).filter(function (p) { return p.seat === id; })[0];
   }
@@ -226,7 +248,7 @@
     $('qrMsg').classList.toggle('show', !!msg || !lastToken);
 
     $('modeLbl').hidden = !admin; $('nameBtn').hidden = !admin; $('sessBtns').hidden = !admin;
-    $('proxyBtn').hidden = !admin; $('signBtn').hidden = !admin;
+    $('proxyBtn').hidden = !admin; $('listBtn').hidden = !admin; $('signBtn').hidden = !admin;
     $('nameBtn').textContent = showReal ? '이름 가리기' : '실명 보기';
     if (admin) renderSessBtns();
   }
@@ -322,7 +344,8 @@
     $('sheetSub').textContent = APP.seatLabel(id);
     if (p) {
       $('sheetTitle').textContent = p.name + ' (' + p.birth + ')';
-      $('sheetBody').innerHTML = '<p class="muted">' + esc(sessText(p)) + '</p>' +
+      $('sheetBody').innerHTML = '<p>' + telHtml(p) + (p.org ? ' <span class="muted">· ' + esc(p.org) + '</span>' : '') + '</p>' +
+        '<p class="muted">' + esc(sessText(p)) + '</p>' +
         '<div class="row2"><button class="btn secondary" id="moveBtn" type="button">다른 좌석으로 이동</button>' +
         '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">좌석 해제</button></div>';
       $('moveBtn').addEventListener('click', function () {
@@ -337,7 +360,7 @@
       });
     } else {
       $('sheetTitle').textContent = '빈 좌석 · 직접 배정';
-      $('sheetBody').innerHTML = '<input id="q" type="search" placeholder="이름 검색"><div id="pickList"></div>';
+      $('sheetBody').innerHTML = '<input id="q" type="search" placeholder="이름 또는 연락처 검색"><div id="pickList"></div>';
       $('q').addEventListener('input', renderPick);
       renderPick();
     }
@@ -348,11 +371,11 @@
 
   function renderPick() {
     var q = ($('q').value || '').replace(/\s/g, '');
-    var list = (data.people || []).filter(function (p) { return !q || p.name.indexOf(q) >= 0; });
+    var list = (data.people || []).filter(function (p) { return matchQ(p, q); });
     list.sort(function (a, b) { return (a.seat ? 1 : 0) - (b.seat ? 1 : 0) || (a.name < b.name ? -1 : 1); });
     $('pickList').innerHTML = list.slice(0, 100).map(function (p) {
       var st = sessText(p) + (p.seat ? ' · 현재 ' + APP.seatLabel(p.seat) : '');
-      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + '<br>' + esc(st) + '</span></div>' +
+      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + '</span> ' + telHtml(p) + '<br><span class="muted">' + esc(st) + '</span></div>' +
         '<button type="button" data-o="' + esc(p.o) + '" data-n="' + esc(p.name) + '">' + (p.seat ? '이리로 이동' : '배정') + '</button></div>';
     }).join('') || '<p class="muted">대상이 없습니다.</p>';
     $('pickList').querySelectorAll('button[data-o]').forEach(function (b) {
@@ -361,6 +384,38 @@
       });
     });
   }
+
+  // ---------- 직원 모드: 명단·연락처 (미출석자에게 전화할 때 사용) ----------
+  var listFilter = 'absent';
+  function openList() {
+    sheetSeat = null;
+    $('sheetSub').textContent = '직원 전용 · 빔 화면에 띄우지 마세요';
+    $('sheetTitle').textContent = '명단·연락처';
+    $('sheetBody').innerHTML =
+      '<input id="lq" type="search" placeholder="이름 또는 연락처 검색">' +
+      '<div class="pfilter"><button type="button" data-f="absent">현재 교시 미출석</button><button type="button" data-f="all">전체</button></div>' +
+      '<div id="pickList"></div>';
+    $('lq').addEventListener('input', renderList);
+    $('sheetBody').querySelectorAll('.pfilter button').forEach(function (b) {
+      b.addEventListener('click', function () { listFilter = b.dataset.f; renderList(); });
+    });
+    renderList();
+    $('sheetBg').classList.add('show');
+  }
+  function renderList() {
+    if (!$('lq')) return;
+    var sess = data.session || 1, q = ($('lq').value || '').replace(/\s/g, '');
+    $('sheetBody').querySelectorAll('.pfilter button').forEach(function (b) { b.classList.toggle('on', b.dataset.f === listFilter); });
+    var all = data.people || [];
+    var list = all.filter(function (p) { return (listFilter === 'all' || !p['s' + sess]) && matchQ(p, q); });
+    list.sort(function (a, b) { return (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
+    var head = '<p class="muted">' + (listFilter === 'all' ? '전체 ' + all.length + '명' : sess + '교시 미출석 ' + all.filter(function (p) { return !p['s' + sess]; }).length + '명') + (q ? ' · 검색 결과 ' + list.length + '명' : '') + '</p>';
+    $('pickList').innerHTML = head + (list.map(function (p) {
+      var st = sessText(p) + (p.seat ? ' · ' + APP.seatLabel(p.seat) : ' · 좌석 미지정');
+      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + (p.org ? ' · ' + esc(p.org) : '') + '</span><br><span class="muted">' + esc(st) + '</span></div>' + telHtml(p) + '</div>';
+    }).join('') || '<p class="muted">대상이 없습니다.</p>');
+  }
+  $('listBtn').addEventListener('click', openList);
 
   async function seatOp(body, okMsg) {
     try {
