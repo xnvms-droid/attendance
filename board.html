@@ -61,7 +61,7 @@
   .wifi-item { display: flex; flex-direction: column; gap: .3vh; align-items: center; text-align: center; min-width: 0; flex: 1; }
   .wifi-item canvas { width: clamp(40px, 6vh, 80px); height: clamp(40px, 6vh, 80px); background: #fff; border: 1px solid #c9ced6; border-radius: 6px; padding: 3px; flex: none; }
   .wifi-item .tx { font-size: clamp(10px, 1.2vh, 14px); line-height: 1.3; white-space: nowrap; }
-  .wifi-item .tx b { display: block; font-size: 1.1em; color: #d10000; }
+  .wifi-item .tx b { font-size: 1.1em; color: #1d2129; }
   .beam-side .foot { margin-top: auto; padding-top: .6vh; font-size: clamp(9px, 1.1vh, 13px); opacity: .65; font-variant-numeric: tabular-nums; }
 
   /* ---------- 직원 도구 (전체화면에서는 숨김, 마우스를 올리면 표시) ---------- */
@@ -181,7 +181,7 @@
       var c = document.createElement('canvas'); c.width = 220; c.height = 220;
       drawQr(c, 'WIFI:T:' + (w.pw ? 'WPA' : 'nopass') + ';S:' + wq(w.ssid) + ';' + (w.pw ? 'P:' + wq(w.pw) + ';' : '') + ';', 2);
       var tx = document.createElement('div'); tx.className = 'tx';
-      tx.innerHTML = '<b>' + esc(w.name || 'Wi-Fi') + '</b>ID ' + esc(w.ssid) + '<br>PW ' + esc(w.pw || '없음');
+      tx.innerHTML = 'ID <b>' + esc(w.ssid) + '</b><br>PW <b>' + esc(w.pw || '없음') + '</b>';
       item.appendChild(c); item.appendChild(tx); $('wifiList').appendChild(item);
     });
     $('wifi').hidden = false;
