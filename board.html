@@ -11,109 +11,115 @@
   body { background: #f4f5f7; color: #1d2129; }
   :root { --seat-w: minmax(30px, 1fr); --aisle: 1.6vw; --door-w: 2vw; --seat-taken: #c9ced6; --seat-free: #ffffff; --line: #d9dce1; --muted: #6b7280; --text: #1d2129; --bg: #f4f5f7; --card: #fff; }
 
-  /* ---------- 빔스크린 레이아웃: 왼쪽 배치도 · 오른쪽 좌석등록 QR ---------- */
+  /* ---------- 빔스크린: 왼쪽 배치도 · 오른쪽 출석 QR ---------- */
   .beam { display: grid; grid-template-columns: 1fr minmax(300px, 27vw); gap: 1.6vw; height: 100vh; padding: 1.6vh 1.6vw; }
   .beam-map { background: #fff; border-radius: 16px; padding: 1.6vh 1.4vw; display: flex; flex-direction: column; min-height: 0; }
   .beam-head { display: flex; align-items: baseline; gap: 1.2vw; margin-bottom: 1vh; flex-wrap: wrap; }
   .beam-head h1 { margin: 0; font-size: clamp(20px, 3.2vh, 40px); }
   .beam-head .stat { font-size: clamp(14px, 2.2vh, 26px); color: #444; }
-  .beam-head .stat b { font-size: clamp(18px, 3vh, 34px); color: #1f5fbf; }
+  .beam-head .stat b { font-size: clamp(18px, 3vh, 34px); color: #138a4a; }
   .map-holder { flex: 1; min-height: 0; }
   .room { min-width: 0; }
   .room-front { font-size: clamp(11px, 1.7vh, 20px); margin-bottom: 1.2vh; }
   .seat-grid { gap: .45vh .3vw; grid-auto-rows: calc((100vh - 3.2vh - 3.2vh - 7vh - 4.5vh - 6vh) / 9); }
   .back-row { gap: .3vw; }
-  .seat { border-radius: 8px; }
-  .seat .no { font-size: clamp(8px, 1.25vh, 14px); }
-  .seat .nm { font-size: clamp(10px, 2.1vh, 24px); }
+  .seat { border-radius: 8px; gap: .2vh; }
+  .seat .no { font-size: clamp(11px, 2vh, 24px); color: #8a919c; font-weight: 700; }
+  .seat .nm { font-size: clamp(11px, 2.1vh, 24px); }
+  .seat .st { font-size: clamp(9px, 1.4vh, 16px); font-weight: 800; }
   .seat .bd { font-size: clamp(8px, 1.3vh, 14px); color: var(--muted); }
-  .seat.filled { background: #dbe8ff; border-color: #1f5fbf; }
+  .seat.filled .no { display: none; }   /* 좌석이 채워지면 번호 대신 이름·출석완료 표시 */
+  .seat.filled.ok { background: #dff3e6; border-color: #138a4a; }
+  .seat.filled.ok .st { color: #138a4a; }
+  .seat.filled.wait { background: #eef0f3; border-color: #9aa1ad; }
+  .seat.filled.wait .st { color: #8a919c; }
   .seat.moving { outline: 4px solid #c27c0e; outline-offset: 1px; }
   .door { font-size: clamp(11px, 1.8vh, 20px); }
   .staff-desk { margin-top: 1.2vh; font-size: clamp(11px, 1.6vh, 18px); padding: .5vh 0; }
 
-  .beam-side { background: #1f5fbf; color: #fff; border-radius: 16px; padding: 2.4vh 1.6vw; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 0; }
-  .beam-side .ttl { font-size: clamp(22px, 4.2vh, 52px); font-weight: 900; letter-spacing: 2px; }
-  .beam-side .qrwrap { background: #fff; border-radius: 16px; padding: 1.2vh; margin: 2vh 0; width: min(100%, 44vh); }
-  .beam-side canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
-  .beam-side ol { text-align: left; margin: 0; padding-left: 1.4em; font-size: clamp(14px, 2.4vh, 28px); line-height: 1.55; font-weight: 700; }
+  .beam-side { background: #1f5fbf; color: #fff; border-radius: 16px; padding: 2vh 1.6vw; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 0; }
+  .beam-side .ttl { font-size: clamp(20px, 3.6vh, 46px); font-weight: 900; letter-spacing: 1px; line-height: 1.15; }
+  .beam-side .sess { margin-top: .6vh; background: #fff; color: #1f5fbf; border-radius: 999px; padding: .3vh 1.2vw; font-size: clamp(14px, 2.3vh, 28px); font-weight: 900; }
+  .beam-side .qrwrap { position: relative; background: #fff; border-radius: 16px; padding: 1.1vh; margin: 1.4vh 0 .6vh; width: min(100%, 36vh); }
+  .beam-side canvas#beamQr { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
+  .qr-msg { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; color: #1d2129; font-weight: 800; font-size: clamp(13px, 2vh, 22px); padding: 1vh; background: #fff; border-radius: 16px; }
+  .qr-msg.show { display: flex; }
+  .rot { width: min(100%, 36vh); height: .7vh; min-height: 4px; background: rgba(255,255,255,.25); border-radius: 4px; overflow: hidden; }
+  .rot i { display: block; height: 100%; background: #ffd166; width: 100%; transition: width .9s linear; }
+  .rot-tx { font-size: clamp(10px, 1.3vh, 15px); opacity: .85; margin-top: .3vh; }
+  .beam-side ol { text-align: left; margin: 1vh 0 0; padding-left: 1.4em; font-size: clamp(13px, 2.1vh, 25px); line-height: 1.5; font-weight: 700; }
+  .beam-side ol .red { color: #ffb3b3; }
   .beam-side ol small { display: block; font-weight: 500; font-size: .75em; opacity: .9; }
-  .beam-side .clock { margin-top: auto; font-size: clamp(18px, 3.4vh, 40px); font-weight: 800; font-variant-numeric: tabular-nums; }
-  .beam-side .upd { font-size: clamp(11px, 1.4vh, 16px); opacity: .8; }
+  .wifi { margin-top: 1.4vh; width: 100%; background: rgba(255,255,255,.12); border-radius: 12px; padding: .9vh .8vw; }
+  .wifi-ttl { font-size: clamp(12px, 1.6vh, 19px); font-weight: 800; margin-bottom: .5vh; }
+  .wifi-ttl small { font-weight: 500; opacity: .85; font-size: .8em; margin-left: .4em; }
+  .wifi-list { display: flex; gap: .8vw; justify-content: center; }
+  .wifi-item { display: flex; flex-direction: column; gap: .3vh; align-items: center; text-align: center; min-width: 0; flex: 1; }
+  .wifi-item canvas { width: clamp(44px, 7vh, 92px); height: clamp(44px, 7vh, 92px); background: #fff; border-radius: 6px; padding: 3px; flex: none; }
+  .wifi-item .tx { font-size: clamp(10px, 1.2vh, 14px); line-height: 1.3; white-space: nowrap; }
+  .wifi-item .tx b { display: block; font-size: 1.1em; }
+  .beam-side .clock { margin-top: auto; font-size: clamp(18px, 3.2vh, 38px); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .beam-side .upd { font-size: clamp(11px, 1.3vh, 15px); opacity: .8; }
 
-  /* ---------- 조작 버튼 (전체화면에서는 숨김, 마우스를 올리면 표시) ---------- */
-  .tools { position: fixed; left: 2.4vw; bottom: 2.2vh; display: flex; gap: 6px; z-index: 30; flex-wrap: wrap; }
-  .tools button { border: 0; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 700; background: #1d2129; color: #fff; cursor: pointer; opacity: .9; }
-  .tools button.light { background: #fff; color: #1d2129; border: 1px solid #c9ced6; }
-  .tools .mode { background: #c27c0e; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 700; }
+  /* ---------- 직원 도구 (전체화면에서는 숨김, 마우스를 올리면 표시) ---------- */
+  .tools { position: fixed; left: 2.4vw; bottom: 2.2vh; display: flex; gap: 6px; z-index: 30; flex-wrap: wrap; max-width: 66vw; }
+  .tools button, .tools a { border: 0; border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 700; background: #1d2129; color: #fff; cursor: pointer; text-decoration: none; }
+  .tools .light { background: #fff; color: #1d2129; border: 1px solid #c9ced6; }
+  .tools .on { background: #c27c0e; color: #fff; border-color: #c27c0e; }
+  .tools .mode { background: #c27c0e; color: #fff; border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 700; }
   body.fs .tools { opacity: 0; transition: opacity .3s; }
   body.fs .tools:hover { opacity: 1; }
   .move-banner { position: fixed; left: 50%; top: 1.2vh; transform: translateX(-50%); background: #c27c0e; color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 800; z-index: 31; display: none; }
   .move-banner.show { display: block; }
   .move-banner button { margin-left: 10px; border: 0; border-radius: 8px; padding: 6px 10px; font-weight: 700; }
-
-  .person { display: flex; justify-content: space-between; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--line); }
-  .person button { padding: 8px 12px; border: 0; border-radius: 8px; background: #1f5fbf; color: #fff; font-weight: 700; }
+  .person { display: flex; justify-content: space-between; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--line); gap: 8px; }
+  .person button { padding: 8px 12px; border: 0; border-radius: 8px; background: #1f5fbf; color: #fff; font-weight: 700; white-space: nowrap; }
   #pickList { max-height: 46vh; overflow: auto; }
-  .print-title { display: none; }
 
-  /* 좁은 화면(노트북 창을 줄였을 때·태블릿) */
   @media (max-width: 900px), (max-aspect-ratio: 1/1) {
     .beam { grid-template-columns: 1fr; height: auto; }
     .seat-grid { grid-auto-rows: 54px; }
-    .beam-side .qrwrap { width: min(80%, 320px); }
-  }
-
-  /* ---------- A3 세로 인쇄 (종이 배치도와 같은 모양) ---------- */
-  @media print {
-    @page { size: A3 portrait; margin: 10mm; }
-    body { background: #fff; color: #000; }
-    .beam { display: block; height: auto; padding: 0; }
-    .beam-side, .tools, .beam-head, .toast, .sheet-bg, .move-banner { display: none !important; }
-    .beam-map { padding: 0; }
-    .print-title { display: block; text-align: center; font-size: 28pt; font-weight: 900; letter-spacing: 12px; margin-bottom: 6mm; }
-    :root { --seat-w: 1fr; --aisle: 5mm; --door-w: 9mm; }
-    .seat-grid { grid-auto-rows: 30mm; gap: 0; }
-    .back-row { gap: 0; }
-    .seat { border-radius: 0; border-color: #000 !important; background: #fff !important; color: #000 !important; justify-content: space-evenly; align-items: stretch; padding: 2mm; }
-    .seat .no { text-align: left; color: #555; font-size: 8pt; }
-    .seat .nm { font-size: 13pt; text-align: center; }
-    .seat .bd { font-size: 10pt; text-align: center; color: #000; }
-    .door { font-size: 14pt; }
-    .room-front, .staff-desk { font-size: 11pt; }
+    .beam-side .qrwrap, .rot { width: min(80%, 320px); }
   }
 </style>
 </head>
 <body>
 <div class="beam">
   <main class="beam-map">
-    <div class="print-title">강 의 실 &nbsp; 배 치 도</div>
     <div class="beam-head">
       <h1 id="title">좌석 현황</h1>
-      <span class="stat">출석 <b id="sAtt">0</b>/<span id="sTotal">0</span></span>
-      <span class="stat">좌석지정 <b id="sSeat">0</b></span>
+      <span class="stat"><span id="sLbl">출석</span> <b id="sSigned">0</b>/<span id="sTotal">0</span></span>
     </div>
     <div class="map-holder" id="map"></div>
   </main>
 
   <aside class="beam-side">
-    <div class="ttl">좌석 등록</div>
-    <div class="qrwrap"><canvas id="seatQr" width="500" height="500" aria-label="좌석 등록 QR"></canvas></div>
+    <div class="ttl">출석 QR</div>
+    <div class="sess" id="sessLbl">-</div>
+    <div class="qrwrap"><canvas id="beamQr" width="560" height="560" aria-label="출석 QR"></canvas><div class="qr-msg" id="qrMsg">불러오는 중…</div></div>
+    <div class="rot"><i id="rotBar"></i></div>
+    <div class="rot-tx">QR은 <span id="rotSec">30</span>초마다 바뀝니다 · 교육장 안에서 바로 촬영해 주세요</div>
     <ol>
-      <li>자리에 앉으신 뒤</li>
       <li>휴대폰 카메라로 QR 촬영</li>
-      <li>이름 · 생년월일 6자리 입력</li>
-      <li>앉은 좌석 누르기<small>잘못 고른 경우 [좌석 변경하기]</small></li>
+      <li>이름 · 생년월일 · 휴대폰번호 입력</li>
+      <li><span class="red">빨간색 서명</span> (이름을 정자로)</li>
+      <li>앉은 좌석 누르기<small>잘못 누른 경우 다른 좌석을 누르면 변경됩니다</small></li>
     </ol>
+    <div class="wifi" id="wifi" hidden>
+      <div class="wifi-ttl">교육장 Wi-Fi <small>카메라로 찍으면 바로 연결</small></div>
+      <div class="wifi-list" id="wifiList"></div>
+    </div>
     <div class="clock" id="clock">--:--:--</div>
     <div class="upd">자동 갱신 <span id="sUpd">-</span></div>
   </aside>
 </div>
 
 <div class="tools" id="tools">
-  <span class="mode" id="modeLbl" hidden>직원 수정 모드</span>
+  <span class="mode" id="modeLbl" hidden>직원 모드</span>
+  <span id="sessBtns" hidden></span>
   <button class="light" id="nameBtn" type="button" hidden>실명 보기</button>
-  <button class="light" id="printBtn" type="button" hidden>배치도 인쇄(A3)</button>
+  <a class="light" id="proxyBtn" href="#" target="_blank" rel="noopener" hidden>현장 대리입력</a>
+  <a class="light" id="signBtn" href="#" target="_blank" rel="noopener" hidden>서명부 인쇄</a>
   <button id="fsBtn" type="button">전체화면</button>
 </div>
 <div class="move-banner" id="moveBanner"><span id="moveText"></span><button type="button" id="moveCancel">이동 취소</button></div>
@@ -135,78 +141,148 @@
 (function () {
   'use strict';
   var api = APP.api, esc = APP.esc, $ = function (id) { return document.getElementById(id); };
-  var key = APP.staffKey();              // 직원용 링크로 연 경우에만 수정 기능
+  var key = APP.staffKey();              // 직원용 링크(?k=)로 연 경우에만 직원 기능
   var admin = !!key;
-  var showReal = false;                  // 빔에 실명 노출 방지: 기본은 이름 일부 가림
+  var showReal = false;                  // 빔에 실명 노출 방지: 기본은 한○목 형태
   var data = { seats: {} };
-  var sheetSeat = null;
-  var moving = null;                     // {o, name, from}
+  var sheetSeat = null, moving = null, lastToken = '', nextAt = 0;
+  var base = new URL('./', location.href).href;
 
   function toast(t) {
     var el = $('toast'); el.textContent = t; el.classList.add('show');
     clearTimeout(toast.tm); toast.tm = setTimeout(function () { el.classList.remove('show'); }, 2600);
   }
 
-  // ---------- 좌석등록 QR (seat.html) ----------
-  (function drawQr() {
-    var url = new URL('seat.html', location.href).href;
-    var qr = qrcode(0, 'M'); qr.addData(url); qr.make();
-    var c = $('seatQr'), ctx = c.getContext('2d');
-    var n = qr.getModuleCount(), q = 3, cell = c.width / (n + q * 2);
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.fillStyle = '#000';
+  function drawQr(canvas, text, margin) {
+    var qr = qrcode(0, 'M'); qr.addData(text); qr.make();
+    var ctx = canvas.getContext('2d'), n = qr.getModuleCount(), q = margin, cell = canvas.width / (n + q * 2);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#000';
     for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
       if (qr.isDark(y, x)) ctx.fillRect(Math.floor((x + q) * cell), Math.floor((y + q) * cell), Math.ceil(cell), Math.ceil(cell));
     }
+  }
+
+  // ---------- 교육장 Wi-Fi QR (config.js의 WIFI) ----------
+  (function () {
+    var list = (APP.CFG.WIFI || []).filter(function (w) { return w && w.ssid; });
+    if (!list.length) return;
+    function wq(s) { return String(s).replace(/([\\;,:"])/g, '\\$1'); }
+    list.slice(0, 2).forEach(function (w) {
+      var item = document.createElement('div'); item.className = 'wifi-item';
+      var c = document.createElement('canvas'); c.width = 220; c.height = 220;
+      drawQr(c, 'WIFI:T:' + (w.pw ? 'WPA' : 'nopass') + ';S:' + wq(w.ssid) + ';' + (w.pw ? 'P:' + wq(w.pw) + ';' : '') + ';', 2);
+      var tx = document.createElement('div'); tx.className = 'tx';
+      tx.innerHTML = '<b>' + esc(w.name || 'Wi-Fi') + '</b>ID ' + esc(w.ssid) + '<br>PW ' + esc(w.pw || '없음');
+      item.appendChild(c); item.appendChild(tx); $('wifiList').appendChild(item);
+    });
+    $('wifi').hidden = false;
   })();
 
   // ---------- 배치도 ----------
   APP.renderSeatMap($('map'), { onSeat: onSeat });
   $('map').querySelectorAll('.seat').forEach(function (b) {
+    var st = document.createElement('span'); st.className = 'st'; b.appendChild(st);
     var bd = document.createElement('span'); bd.className = 'bd'; b.appendChild(bd);
   });
 
   function mask(name) {
     var s = String(name || '');
     if (s.length <= 1) return s;
-    if (s.length === 2) return s.charAt(0) + '*';
-    return s.charAt(0) + new Array(s.length - 1).join('*') + s.charAt(s.length - 1);
+    if (s.length === 2) return s.charAt(0) + '○';
+    return s.charAt(0) + new Array(s.length - 1).join('○') + s.charAt(s.length - 1);
   }
 
-  function paint(forceReal) {
-    var real = forceReal || showReal;
+  function personBySeat(id) {
+    return (data.people || []).filter(function (p) { return p.seat === id; })[0];
+  }
+
+  function paint() {
+    var sess = data.session || 1;
     APP.updateSeats($('map'), function (id, b) {
       var v = data.seats[id];
-      var name = !v ? '' : (typeof v === 'string' ? v : (real ? v.name : mask(v.name)));
+      var p = admin ? personBySeat(id) : null;
       b.classList.toggle('filled', !!v);
+      b.classList.toggle('ok', !!v && v.ok);
+      b.classList.toggle('wait', !!v && !v.ok);
       b.classList.toggle('moving', !!moving && moving.from === id);
-      b.querySelector('.nm').textContent = name;
-      b.querySelector('.bd').textContent = v && typeof v === 'object' && real ? v.birth : '';
+      b.querySelector('.nm').textContent = !v ? '' : (showReal && p ? p.name : v.n);
+      b.querySelector('.st').textContent = !v ? '' : (v.ok ? '출석완료' : '서명 전');
+      b.querySelector('.bd').textContent = showReal && p ? p.birth : '';
     });
-    $('sTotal').textContent = data.total || 0;
-    $('sAtt').textContent = data.attended || 0;
-    $('sSeat').textContent = data.seated || 0;
+    var c = data.counts || {};
+    $('sTotal').textContent = c.total || 0;
+    $('sSigned').textContent = c.signed || 0;
+    $('sLbl').textContent = (data.sessionLabel || '') + ' 출석';
     $('sUpd').textContent = data.t || '-';
-    $('title').textContent = data.round ? '오프라인 ' + data.round + '차 좌석 현황' : '좌석 현황';
-    $('modeLbl').hidden = !admin; $('nameBtn').hidden = !admin; $('printBtn').hidden = !admin;
+    $('title').textContent = data.round ? data.title : '좌석 현황';
+    $('sessLbl').textContent = data.sessionLabel ? data.sessionLabel + ' 출석' : '-';
+
+    var msg = '';
+    if (data.noRound) msg = data.msg || '진행 중인 회차가 없습니다.';
+    else if (data.round && !data.eduOk) msg = '교육 당일에 출석 QR이 표시됩니다.';
+    $('qrMsg').textContent = msg;
+    $('qrMsg').classList.toggle('show', !!msg || !lastToken);
+
+    $('modeLbl').hidden = !admin; $('nameBtn').hidden = !admin; $('sessBtns').hidden = !admin;
+    $('proxyBtn').hidden = !admin; $('signBtn').hidden = !admin;
     $('nameBtn').textContent = showReal ? '이름 가리기' : '실명 보기';
+    if (admin) renderSessBtns();
+  }
+
+  function renderSessBtns() {
+    var box = $('sessBtns');
+    var list = [{ no: 0, label: '교시 자동' }].concat((data.sessions || []).map(function (s) { return { no: s.no, label: s.no + '교시' }; }));
+    box.innerHTML = list.map(function (s) {
+      var on = (data.override || 0) === s.no;
+      return '<button type="button" class="light' + (on ? ' on' : '') + '" data-sess="' + s.no + '">' + esc(s.label) + '</button> ';
+    }).join('');
+    box.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        try {
+          var r = await api('adminSession', { key: key, session: Number(b.dataset.sess) });
+          toast(r.ok ? '현재 ' + r.sessionLabel + '로 표시합니다.' : r.msg);
+        } catch (e) { toast('연결 오류'); }
+        refresh();
+      });
+    });
+  }
+
+  function updateQr() {
+    if (data.token && data.token !== lastToken) {
+      lastToken = data.token;
+      drawQr($('beamQr'), base + 'c.html?t=' + encodeURIComponent(data.token), 3);
+    }
+    if (!data.token) lastToken = '';
+    if (data.rotateSec) {
+      $('rotSec').textContent = data.rotateSec;
+      nextAt = Date.now() + (data.nextIn || data.rotateSec) * 1000;
+    }
   }
 
   async function refresh() {
     try {
-      var res = admin ? await api('adminState', { key: key }) : await api('seatState', {});
+      var res = await api('beamState', admin ? { key: key } : {});
       if (!res.ok) {
         if (admin && (res.code === 'KEY' || res.code === 'KEY_LOCK')) { admin = false; toast(res.msg); }
         return;
       }
       data = res;
+      updateQr();
       paint();
     } catch (e) {}
   }
 
   function loop() {
-    setTimeout(function () { if (!document.hidden) refresh().finally(loop); else loop(); }, 3000);
+    setTimeout(function () { refresh().finally(loop); }, 3000);
   }
-  setInterval(function () { $('clock').textContent = APP.hhmmss(); }, 500);
+  setInterval(function () {
+    $('clock').textContent = APP.hhmmss();
+    if (nextAt && data.rotateSec) {
+      var left = Math.max(0, (nextAt - Date.now()) / 1000);
+      $('rotBar').style.width = (left / data.rotateSec * 100).toFixed(1) + '%';
+      if (left <= 0) { nextAt = 0; refresh(); }
+    }
+  }, 500);
 
   // ---------- 전체화면 ----------
   $('fsBtn').addEventListener('click', function () {
@@ -220,38 +296,42 @@
     $('fsBtn').textContent = fs ? '전체화면 종료' : '전체화면';
   });
 
+  if (admin) {
+    $('proxyBtn').href = 'c.html?k=' + encodeURIComponent(key);
+    $('signBtn').href = 'sign.html?k=' + encodeURIComponent(key);
+  }
   $('nameBtn').addEventListener('click', function () { showReal = !showReal; paint(); });
-  $('printBtn').addEventListener('click', function () {
-    paint(true);
-    setTimeout(function () { window.print(); paint(); }, 100);
-  });
 
-  // ---------- 직원 수정 모드: 좌석 해제 · 이동 · 배정 ----------
+  // ---------- 직원 모드: 좌석 해제 · 이동 · 배정 ----------
+  function sessText(p) {
+    return [1, 2, 3].map(function (k) { return k + '교시 ' + (p['s' + k] || '-'); }).join(' · ');
+  }
+
   function onSeat(id) {
     if (!admin) return;
-    var v = data.seats[id];
+    var p = personBySeat(id);
     if (moving) {
-      if (v) { toast('빈 좌석을 눌러 주세요.'); return; }
+      if (p) { toast('빈 좌석을 눌러 주세요.'); return; }
       var m = moving; moving = null; $('moveBanner').classList.remove('show');
       seatOp({ op: 'assign', seat: id, o: m.o }, m.name + ' → ' + APP.seatLabel(id) + ' 이동했습니다.');
       return;
     }
     sheetSeat = id;
     $('sheetSub').textContent = APP.seatLabel(id);
-    if (v) {
-      $('sheetTitle').textContent = v.name + ' (' + v.birth + ')';
-      $('sheetBody').innerHTML = '<p class="muted">출석 ' + esc(v.att || '기록 없음') + '</p>' +
+    if (p) {
+      $('sheetTitle').textContent = p.name + ' (' + p.birth + ')';
+      $('sheetBody').innerHTML = '<p class="muted">' + esc(sessText(p)) + '</p>' +
         '<div class="row2"><button class="btn secondary" id="moveBtn" type="button">다른 좌석으로 이동</button>' +
         '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">좌석 해제</button></div>';
       $('moveBtn').addEventListener('click', function () {
-        moving = { o: v.o, name: v.name, from: id };
-        $('moveText').textContent = v.name + ' 님을 옮길 빈 좌석을 누르세요';
+        moving = { o: p.o, name: p.name, from: id };
+        $('moveText').textContent = p.name + ' 님을 옮길 빈 좌석을 누르세요';
         $('moveBanner').classList.add('show');
         $('sheetBg').classList.remove('show');
         paint();
       });
       $('clearBtn').addEventListener('click', function () {
-        if (window.confirm(v.name + ' 님의 ' + APP.seatLabel(id) + ' 좌석을 해제할까요?')) seatOp({ op: 'clear', seat: id }, '좌석을 해제했습니다.');
+        if (window.confirm(p.name + ' 님의 ' + APP.seatLabel(id) + ' 좌석을 해제할까요?')) seatOp({ op: 'clear', seat: id }, '좌석을 해제했습니다.');
       });
     } else {
       $('sheetTitle').textContent = '빈 좌석 · 직접 배정';
@@ -266,14 +346,12 @@
 
   function renderPick() {
     var q = ($('q').value || '').replace(/\s/g, '');
-    var list = (data.people || []).filter(function (p) { return !q || p[1].indexOf(q) >= 0; });
-    list.sort(function (a, b) {
-      return (a[4] ? 1 : 0) - (b[4] ? 1 : 0) || (b[3] ? 1 : 0) - (a[3] ? 1 : 0) || a[1].localeCompare(b[1], 'ko');
-    });
+    var list = (data.people || []).filter(function (p) { return !q || p.name.indexOf(q) >= 0; });
+    list.sort(function (a, b) { return (a.seat ? 1 : 0) - (b.seat ? 1 : 0) || (a.name < b.name ? -1 : 1); });
     $('pickList').innerHTML = list.slice(0, 100).map(function (p) {
-      var st = (p[3] ? '출석 ' + p[3] : '미출석') + (p[4] ? ' · 현재 ' + APP.seatLabel(p[4]) : '');
-      return '<div class="person"><div><b>' + esc(p[1]) + '</b> <span class="muted">' + esc(p[2]) + ' · ' + esc(st) + '</span></div>' +
-        '<button type="button" data-o="' + esc(p[0]) + '" data-n="' + esc(p[1]) + '">' + (p[4] ? '이리로 이동' : '배정') + '</button></div>';
+      var st = sessText(p) + (p.seat ? ' · 현재 ' + APP.seatLabel(p.seat) : '');
+      return '<div class="person"><div><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth) + '<br>' + esc(st) + '</span></div>' +
+        '<button type="button" data-o="' + esc(p.o) + '" data-n="' + esc(p.name) + '">' + (p.seat ? '이리로 이동' : '배정') + '</button></div>';
     }).join('') || '<p class="muted">대상이 없습니다.</p>';
     $('pickList').querySelectorAll('button[data-o]').forEach(function (b) {
       b.addEventListener('click', function () {
