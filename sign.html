@@ -12,6 +12,10 @@
   .bar input { width: 70px; padding: 6px 8px; border-radius: 6px; border: 0; font-size: 14px; }
   .bar button { border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
   .bar .p { background: #1f5fbf; color: #fff; }
+  .bar .g { background: #138a4a; color: #fff; }
+  .bar button:disabled { opacity: .6; cursor: default; }
+  #saveMsg { width: 100%; font-size: 13px; }
+  #saveMsg a { color: #9cc3ff; font-weight: 700; margin-left: 6px; }
   .bar .sp { flex: 1; }
   #msg { padding: 30px; text-align: center; font-size: 16px; }
 
@@ -44,18 +48,23 @@
   <button class="p" id="loadBtn" type="button">불러오기</button>
   <span id="info"></span>
   <span class="sp"></span>
-  <button class="p" id="printBtn" type="button">인쇄 / PDF 저장</button>
+  <button class="g" id="saveBtn" type="button" disabled>서명부 폴더에 PDF 저장</button>
+  <button class="p" id="printBtn" type="button">인쇄</button>
+  <div id="saveMsg"></div>
 </div>
 <div id="msg">불러오는 중입니다…</div>
 <div id="pages"></div>
 
 <script src="config.js"></script>
 <script src="assets/common.js"></script>
+<script src="vendor/html2canvas.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
 <script>
 (function () {
   'use strict';
   var key = APP.staffKey(), esc = APP.esc;
   var ROWS_PER_PAGE = 17;
+  var loaded = null;
   var $ = function (id) { return document.getElementById(id); };
 
   async function load() {
@@ -68,6 +77,8 @@
       var res = await APP.api('signSheet', body, 60000);
       if (!res.ok) { $('msg').textContent = res.msg || '불러오지 못했습니다.'; return; }
       render(res);
+      loaded = res;
+      $('saveBtn').disabled = false;
       $('msg').hidden = true;
     } catch (e) {
       $('msg').textContent = '연결 오류입니다. 다시 불러와 주세요.';
@@ -96,6 +107,37 @@
     $('pages').innerHTML = html;
   }
 
+  // ---------- 화면의 서명부를 그대로 PDF로 만들어 드라이브 「서명부」 폴더에 저장 ----------
+  async function savePdf() {
+    if (!loaded) return;
+    if (!window.html2canvas || !window.jspdf) { $('saveMsg').textContent = 'PDF 도구(vendor 폴더의 html2canvas.min.js, jspdf.umd.min.js)를 불러오지 못했습니다.'; return; }
+    var btn = $('saveBtn'); btn.disabled = true;
+    var pages = Array.prototype.slice.call(document.querySelectorAll('#pages .page'));
+    try {
+      var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+      for (var i = 0; i < pages.length; i++) {
+        $('saveMsg').textContent = 'PDF 만드는 중… (' + (i + 1) + '/' + pages.length + '쪽)';
+        var shadow = pages[i].style.boxShadow; pages[i].style.boxShadow = 'none';
+        var canvas = await window.html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff', logging: false });
+        pages[i].style.boxShadow = shadow;
+        if (i) pdf.addPage('a4', 'landscape');
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 297, 210);
+      }
+      $('saveMsg').textContent = '드라이브에 저장하는 중…';
+      var dataUrl = pdf.output('datauristring');
+      var res = await APP.api('saveSignPdf', { key: key, round: loaded.round, pdf: dataUrl }, 120000);
+      if (!res.ok) { $('saveMsg').textContent = res.msg || '저장하지 못했습니다.'; return; }
+      $('saveMsg').innerHTML = esc(res.time) + ' 저장 완료: ' + esc(res.name) +
+        ' <a href="' + esc(res.url) + '" target="_blank" rel="noopener">파일 열기</a>' +
+        ' <a href="' + esc(res.folderUrl) + '" target="_blank" rel="noopener">서명부 폴더 열기</a>';
+    } catch (e) {
+      $('saveMsg').textContent = '저장 중 오류가 발생했습니다. 다시 눌러 주세요. (' + (e && e.message ? e.message : e) + ')';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $('saveBtn').addEventListener('click', savePdf);
   $('loadBtn').addEventListener('click', load);
   $('printBtn').addEventListener('click', function () { window.print(); });
   load();
