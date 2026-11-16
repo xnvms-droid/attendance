@@ -33,7 +33,28 @@
   td.abs { color: #d10000; font-weight: 700; letter-spacing: 6px; }
   col.c-no { width: 5%; } col.c-nm { width: 8%; } col.c-bd { width: 9%; } col.c-org { width: 30%; } col.c-s { width: 16%; }
 
+  /* 좌석배치도 (A4 가로 1장, 화면 확인·PDF 저장용 — 서명부 인쇄에는 포함하지 않음) */
+  #seatWrap h2 { width: 297mm; margin: 14mm auto 0; font-size: 15px; color: #333; }
+  .spage { width: 297mm; height: 210mm; margin: 4mm auto 10mm; background: #fff; padding: 8mm 10mm; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: flex; flex-direction: column; align-items: center; }
+  .spage h1 { text-align: center; font-size: 17pt; margin: 0 0 3mm; }
+  .spage .front { display: grid; grid-template-columns: 1fr 2fr 1fr; width: 244mm; margin-left: 12mm; border: 1px solid #000; font-size: 9pt; font-weight: 700; text-align: center; }
+  .spage .front div { padding: 1.2mm 0; border-right: 1px solid #000; }
+  .spage .front div:last-child { border-right: 0; }
+  .sgrid { display: grid; grid-template-columns: 12mm repeat(2, 22mm) 8mm repeat(3, 22mm) 8mm repeat(3, 22mm) 8mm repeat(2, 22mm); grid-auto-rows: 14.6mm; gap: 1mm 0; margin-top: 2.5mm; }
+  .sgrid .rl { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9.5pt; color: #1f5fbf; }
+  .sgrid .st { border: 1px solid #555; border-radius: 1.5mm; margin: 0 .6mm; padding: .8mm 1mm; display: flex; flex-direction: column; justify-content: space-between; font-size: 7pt; color: #888; }
+  .sgrid .st b { font-size: 10pt; color: #000; text-align: center; letter-spacing: -.3px; }
+  .sgrid .st.on { background: #eef6f0; border-color: #138a4a; }
+  .sgrid .st i { font-style: normal; text-align: center; font-size: 7pt; letter-spacing: .5px; }
+  .sgrid .st i .y { color: #138a4a; font-weight: 700; } .sgrid .st i .n { color: #c9ced6; }
+  .sgrid .back { display: flex; gap: .8mm; margin: 0 .6mm; }
+  .sgrid .back .st { flex: 1; margin: 0; padding: .6mm .5mm; }
+  .sgrid .back .st b { font-size: 8pt; }
+  .spage .desk { margin-top: 3mm; width: 90mm; border: 1px solid #000; text-align: center; font-size: 9pt; font-weight: 700; padding: 1.2mm 0; }
+  .spage .note { margin-top: 2.5mm; width: 256mm; font-size: 8.5pt; color: #333; line-height: 1.5; }
+
   @media print {
+    #seatWrap { display: none !important; }
     @page { size: A4 landscape; margin: 0; }
     body { background: #fff; }
     .bar, #msg { display: none !important; }
@@ -50,12 +71,13 @@
   <button class="p" id="loadBtn" type="button">불러오기</button>
   <span id="info"></span>
   <span class="sp"></span>
-  <button class="g" id="saveBtn" type="button" disabled>서명부 폴더에 PDF 저장</button>
+  <button class="g" id="saveBtn" type="button" disabled>서명부·좌석배치도 PDF 저장</button>
   <button class="p" id="printBtn" type="button">인쇄</button>
   <div id="saveMsg"></div>
 </div>
 <div id="msg">불러오는 중입니다…</div>
 <div id="pages"></div>
+<div id="seatWrap" hidden><h2>좌석배치도 (서명부 폴더에 PDF로 함께 저장됩니다)</h2><section class="spage" id="seatPage"></section></div>
 
 <script src="config.js"></script>
 <script src="assets/common.js"></script>
@@ -114,6 +136,39 @@
       html += '</tbody></table></section>';
     }
     $('pages').innerHTML = html;
+    renderSeats(res);
+  }
+
+  // ---------- 좌석배치도: 1~8열 × 10석 [2|3|3|2], 9열 3석(오른쪽 2인석 아래) ----------
+  function renderSeats(res) {
+    var bySeat = {}, noSeat = [];
+    res.rows.forEach(function (r) {
+      if (r.absent) return;
+      var att = (r.tm || []).some(function (t) { return !!t; });
+      if (r.seat) bySeat[r.seat] = r; else if (att) noSeat.push(r.name);
+    });
+    function cell(id) {
+      var r = bySeat[id];
+      var marks = r ? [0, 1, 2].map(function (k) { return '<span class="' + ((r.tm || [])[k] ? 'y' : 'n') + '">' + (k + 1) + '</span>'; }).join('·') : '';
+      return '<div class="st' + (r ? ' on' : '') + '"><span>' + id + '</span><b>' + (r ? esc(r.name) : '') + '</b><i>' + (r ? marks + '교시' : '') + '</i></div>';
+    }
+    var groups = [2, 3, 3, 2], html = '';
+    for (var row = 1; row <= 8; row++) {
+      html += '<div class="rl">' + row + '열</div>';
+      var c = 0;
+      groups.forEach(function (g, gi) {
+        for (var k = 0; k < g; k++) { c++; html += cell(row + '-' + c); }
+        if (gi < groups.length - 1) html += '<div></div>';
+      });
+    }
+    html += '<div class="rl">9열</div>' + '<div></div>'.repeat(11) + '<div class="back" style="grid-column: span 2">' + cell('9-1') + cell('9-2') + cell('9-3') + '</div>';
+    var seated = Object.keys(bySeat).length;
+    $('seatPage').innerHTML = '<h1>[' + esc(res.title) + '] 좌석배치도</h1>' +
+      '<div class="front"><div>화이트보드</div><div>스크린 (앞)</div><div>단상</div></div>' +
+      '<div class="sgrid">' + html + '</div><div class="desk">직원책상 (뒤)</div>' +
+      '<div class="note">좌석 지정 ' + seated + '명 · 숫자(1·2·3)는 교시별 출석 여부(초록 = 출석)' +
+      (noSeat.length ? '<br>좌석 미지정 출석자 ' + noSeat.length + '명: ' + noSeat.map(esc).join(', ') : '') + '</div>';
+    $('seatWrap').hidden = false;
   }
 
   // ---------- 화면의 서명부를 그대로 PDF로 만들어 드라이브 「서명부」 폴더에 저장 ----------
@@ -121,29 +176,35 @@
     if (!loaded) return;
     if (!window.html2canvas || !window.jspdf) { $('saveMsg').textContent = 'PDF 도구를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침(Ctrl+Shift+R) 해 주세요.'; return; }
     var btn = $('saveBtn'); btn.disabled = true;
-    var pages = Array.prototype.slice.call(document.querySelectorAll('#pages .page'));
     try {
-      var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
-      for (var i = 0; i < pages.length; i++) {
-        $('saveMsg').textContent = 'PDF 만드는 중… (' + (i + 1) + '/' + pages.length + '쪽)';
-        var shadow = pages[i].style.boxShadow; pages[i].style.boxShadow = 'none';
-        var canvas = await window.html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff', logging: false });
-        pages[i].style.boxShadow = shadow;
-        if (i) pdf.addPage('a4', 'landscape');
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 297, 210);
-      }
-      $('saveMsg').textContent = '드라이브에 저장하는 중…';
-      var dataUrl = pdf.output('datauristring');
-      var res = await APP.api('saveSignPdf', { key: key, round: loaded.round, pdf: dataUrl }, 120000);
-      if (!res.ok) { $('saveMsg').textContent = res.msg || '저장하지 못했습니다.'; return; }
-      $('saveMsg').innerHTML = esc(res.time) + ' 저장 완료: ' + esc(res.name) +
-        ' <a href="' + esc(res.url) + '" target="_blank" rel="noopener">파일 열기</a>' +
-        ' <a href="' + esc(res.folderUrl) + '" target="_blank" rel="noopener">서명부 폴더 열기</a>';
+      // ① 서명부
+      var r1 = await makeAndSave(Array.prototype.slice.call(document.querySelectorAll('#pages .page')), '서명부', '');
+      if (!r1.ok) { $('saveMsg').textContent = r1.msg || '서명부를 저장하지 못했습니다.'; return; }
+      // ② 좌석배치도 (같은 「서명부」 폴더에 함께 저장)
+      var r2 = await makeAndSave([$('seatPage')], '좌석배치도', 'seat');
+      var link = function (r) { return esc(r.name) + ' <a href="' + esc(r.url) + '" target="_blank" rel="noopener">열기</a>'; };
+      $('saveMsg').innerHTML = esc(r1.time) + ' 저장 완료: ' + link(r1) +
+        (r2.ok ? ' / ' + link(r2) : ' / 좌석배치도 저장 실패: ' + esc(r2.msg || '')) +
+        ' <a href="' + esc(r1.folderUrl) + '" target="_blank" rel="noopener">서명부 폴더 열기</a>';
     } catch (e) {
       $('saveMsg').textContent = '저장 중 오류가 발생했습니다. 다시 눌러 주세요. (' + (e && e.message ? e.message : e) + ')';
     } finally {
       btn.disabled = false;
     }
+  }
+
+  async function makeAndSave(pages, label, kind) {
+    var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+    for (var i = 0; i < pages.length; i++) {
+      $('saveMsg').textContent = label + ' PDF 만드는 중… (' + (i + 1) + '/' + pages.length + '쪽)';
+      var shadow = pages[i].style.boxShadow; pages[i].style.boxShadow = 'none';
+      var canvas = await window.html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff', logging: false });
+      pages[i].style.boxShadow = shadow;
+      if (i) pdf.addPage('a4', 'landscape');
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 297, 210);
+    }
+    $('saveMsg').textContent = label + ' 드라이브에 저장하는 중…';
+    return await APP.api('saveSignPdf', { key: key, round: loaded.round, pdf: pdf.output('datauristring'), kind: kind }, 120000);
   }
 
   $('saveBtn').addEventListener('click', savePdf);
