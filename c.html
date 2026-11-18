@@ -24,6 +24,19 @@
   .sign-guide small { display: block; font-weight: 600; font-size: 13px; }
   .warn-box { background: #fff1f1; border: 2px solid #d10000; color: #b00000; border-radius: 12px; padding: 10px 12px; font-weight: 800; font-size: 14px; line-height: 1.5; margin-bottom: 12px; }
   .warn-box small { display: block; font-weight: 600; font-size: 12.5px; color: #8a1f1f; }
+  /* 좌석 선택: 영화관처럼 선택 가능(파랑) / 이미 지정(진회색 ✕) / 내 좌석(초록) */
+  #map .seat { background: #e3eeff; border: 2px solid #1f5fbf; }
+  #map .seat .no { color: #1f5fbf; font-weight: 800; }
+  #map .seat.taken { background: #5b6270; border-color: #5b6270; cursor: not-allowed; }
+  #map .seat.taken .no { visibility: hidden; }
+  #map .seat.taken::after { content: '✕'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.75); font-size: 16px; font-weight: 900; pointer-events: none; }
+  #map .seat.mine { background: #138a4a; border-color: #0f6e3b; color: #fff; }
+  #map .seat.mine .no { color: #d6f2e1; }
+  #map .seat.mine .nm { color: #fff; }
+  #map .seat.pick { outline: 4px solid #ff9f1c; outline-offset: 1px; }
+  .legend i.lg-free { background: #e3eeff !important; border: 2px solid #1f5fbf; }
+  .legend i.lg-taken { background: #5b6270 !important; }
+  .legend i.lg-mine { background: #138a4a !important; }
   .bigmsg { position: fixed; inset: 0; z-index: 9999; background: rgba(15,23,42,.55); display: none; align-items: center; justify-content: center; padding: 24px; }
   .bigmsg.show { display: flex; }
   .bigmsg .box { background: #fff; border-radius: 22px; padding: 30px 22px 22px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
@@ -104,7 +117,7 @@
     <div class="card" id="mapCard">
       <div class="status"><span>앉은 좌석을 눌러 주세요</span><span>갱신 <span id="upd">-</span></span></div>
       <div class="map-tip">위쪽이 <b>스크린(앞)</b>입니다.<br><b>왼쪽 파란 숫자</b> = 앞에서 몇 번째 줄 · <b>위쪽 파란 숫자</b> = 스크린을 볼 때 왼쪽에서 몇 번째 자리<br>예) 앞에서 3번째 줄, 왼쪽에서 5번째 → <b>3열 5번</b></div>
-      <div class="legend"><span><i style="background:var(--seat-free)"></i>빈 좌석</span><span><i style="background:var(--seat-taken)"></i>지정됨</span><span><i style="background:var(--seat-mine)"></i>내 좌석</span></div>
+      <div class="legend"><span><i class="lg-free"></i>선택 가능</span><span><i class="lg-taken"></i>이미 지정됨</span><span><i class="lg-mine"></i>내 좌석</span></div>
       <div class="map-scroll" id="map"></div>
     </div>
   </div>
