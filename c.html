@@ -312,6 +312,15 @@
     return id;
   }
 
+  // ---------- 휴대폰 기본 특징 (같은 휴대폰에서 브라우저만 다른 경우 구분용, 개인 식별 정보 아님) ----------
+  function deviceFp() {
+    var ua = navigator.userAgent || '';
+    var os = /iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'And' : /Mac/.test(ua) ? 'Mac' : /Win/.test(ua) ? 'Win' : 'etc';
+    var w = Math.round(screen.width || 0), h = Math.round(screen.height || 0);
+    var dpr = Math.round((window.devicePixelRatio || 1) * 100) / 100;
+    return os + '_' + Math.min(w, h) + 'x' + Math.max(w, h) + '@' + dpr;
+  }
+
   // ---------- 이 휴대폰의 교시별 출석 기록 ----------
   function deviceLog() {
     var d = store.getJSON('ck_dev');
@@ -349,7 +358,7 @@
     }
     var btn = this; btn.disabled = true; var btnTx = btn.textContent; btn.textContent = '저장 중입니다… 잠시만 기다려 주세요'; msg.className = 'msg'; msg.textContent = '';
     try {
-      var res = await api('checkin', { ticket: S.ticket, name: name, birth: birth, phone: phone, sign: signImage(), dev: S.staff ? '' : deviceId() }, 30000);
+      var res = await api('checkin', { ticket: S.ticket, name: name, birth: birth, phone: phone, sign: signImage(), dev: S.staff ? '' : deviceId(), fp: S.staff ? '' : deviceFp() }, 30000);
       if (!res.ok) {
         msg.className = 'msg bad'; msg.textContent = res.msg || '저장하지 못했습니다.';
         if (res.code === 'TICKET') { try { sessionStorage.removeItem('ck_ticket'); } catch (e) {} }
