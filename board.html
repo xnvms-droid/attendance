@@ -95,8 +95,50 @@
   .pfilter button { border: 1px solid #c9ced6; background: #fff; color: #1d2129; border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
   .pfilter button.on { background: #1d2129; color: #fff; border-color: #1d2129; }
 
+  /* ---------- 직원 화면: 확인 목록(서명 전 · 좌석 미지정 · 자리 비움) ---------- */
+  .chk { display: none; background: #fff; border-radius: 16px; border: 2px solid #1d2129; padding: 1.4vh 1vw; flex-direction: column; min-height: 0; }
+  body.staff-chk .beam-side { display: none; }
+  body.staff-chk .chk { display: flex; }
+  .chk-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .chk-head b { font-size: 18px; }
+  .chk-head span { font-size: 12px; color: var(--muted); }
+  .chk-tabs { display: flex; gap: 4px; margin: 8px 0 4px; }
+  .chk-tabs button { flex: 1; border: 1px solid #c9ced6; background: #fff; color: #1d2129; border-radius: 8px; padding: 7px 4px; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .chk-tabs button.on { background: #1d2129; color: #fff; border-color: #1d2129; }
+  .chk-tabs button i { font-style: normal; display: inline-block; min-width: 1.6em; margin-left: 3px; border-radius: 999px; background: #e9ecf1; color: #1d2129; font-size: 12px; padding: 0 5px; }
+  .chk-tabs button.on i { background: #fff; }
+  .chk-tabs button i.hot { background: #d10000; color: #fff; }
+  .chk-note { font-size: 12px; color: var(--muted); margin: 2px 0 4px; line-height: 1.4; }
+  .chk-list { flex: 1; overflow: auto; min-height: 0; }
+  .chk-item { display: flex; align-items: center; gap: 8px; padding: 8px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .chk-item:hover { background: #f4f6fa; }
+  .chk-item .who { flex: 1; min-width: 0; }
+  .chk-item .who b { font-size: 15px; }
+  .chk-item .who .sub { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chk-item .call { flex: none; border: 1px solid #1f5fbf; color: #1f5fbf; border-radius: 8px; padding: 5px 8px; font-size: 13px; font-weight: 800; text-decoration: none; }
+  .chk-item .tdur { flex: none; font-weight: 900; font-variant-numeric: tabular-nums; color: #b25e00; }
+  .chk-item .tdur.over, .tdur.over { color: #d10000; }
+  .chk-item.done { cursor: default; }
+  .chk-tools { display: flex; gap: 6px; margin-top: 6px; }
+  .chk-tools[hidden] { display: none; }
+  .chk-tools button { flex: 1; border: 1px solid #c9ced6; background: #fff; border-radius: 8px; padding: 7px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .seat.away { background: #fff4d6 !important; border-color: #c27c0e !important; }
+  .seat.away .st { color: #b25e00 !important; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .seat.away.over { background: #ffe1e1 !important; border-color: #d10000 !important; }
+  .seat.away.over .st { color: #d10000 !important; }
+  .tbox { border: 1px solid #e3c27a; background: #fffaf0; border-radius: 10px; padding: 10px; margin: 8px 0; }
+  .tbox .tnow { font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; color: #b25e00; }
+  .tbox .tnow.over { color: #d10000; }
+  .tbox .tbtns { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .tbox .tbtns button { flex: 1; border: 0; border-radius: 8px; padding: 10px; font-weight: 800; cursor: pointer; }
+  .tbox .t-start { background: #c27c0e; color: #fff; }
+  .tbox .t-back { background: #138a4a; color: #fff; }
+  .tbox .t-undo { background: #e9ecf1; color: #1d2129; flex: 0 0 auto !important; }
+  .tbox .thist { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
   @media (max-width: 900px), (max-aspect-ratio: 1/1) {
     .beam { grid-template-columns: 1fr; height: auto; }
+    body.staff-chk .chk { order: -1; max-height: 60vh; }
     .seat-grid { grid-auto-rows: 54px; }
     .beam-side .qrwrap, .rot { width: min(80%, 320px); }
   }
@@ -131,6 +173,19 @@
     </div>
     <div class="foot"><span id="clock">--:--:--</span> · 자동 갱신 <span id="sUpd">-</span></div>
   </aside>
+
+  <!-- 직원 화면 전용: 확인 목록 (직원 링크로 열었을 때만 표시) -->
+  <aside class="chk" id="chk" aria-label="확인 목록">
+    <div class="chk-head"><b>확인 목록</b><span id="chkSess">-</span></div>
+    <div class="chk-tabs">
+      <button type="button" data-t="sign">서명 전<i id="cSign">0</i></button>
+      <button type="button" data-t="seat">좌석 미지정<i id="cSeat">0</i></button>
+      <button type="button" data-t="away">자리 비움<i id="cAway">0</i></button>
+    </div>
+    <div class="chk-note" id="chkNote"></div>
+    <div class="chk-list" id="chkList"></div>
+    <div class="chk-tools" id="chkTools" hidden><button type="button" id="awayCopy">기록 복사(엑셀 붙여넣기)</button></div>
+  </aside>
 </div>
 
 <div class="tools" id="tools">
@@ -138,6 +193,7 @@
   <span id="sessBtns" hidden></span>
   <button class="light" id="nameBtn" type="button" hidden>실명 보기</button>
   <button class="light" id="listBtn" type="button" hidden>명단·연락처</button>
+  <button class="light" id="chkBtn" type="button" hidden>확인 목록</button>
   <a class="light" id="proxyBtn" href="#" target="_blank" rel="noopener" hidden>현장 대리입력</a>
   <a class="light" id="signBtn" href="#" target="_blank" rel="noopener" hidden>서명부 인쇄</a>
   <button id="fsBtn" type="button">전체화면</button>
@@ -255,11 +311,13 @@
     return (data.people || []).filter(function (p) { return p.seat === id; })[0];
   }
 
-  function paint() {
-    var sess = data.session || 1;
-    APP.updateSeats($('map'), function (id, b) {
+  function paintSeat(id, b) {
       var v = data.seats[id];
       var p = admin ? personBySeat(id) : null;
+      var aw = admin && p && v ? awayRunning(p.o) : null;
+      var el = aw ? Date.now() - aw.start : 0;
+      b.classList.toggle('away', !!aw);
+      b.classList.toggle('over', !!aw && el >= AWAY_LIMIT);
       b.classList.toggle('filled', !!v);
       b.classList.toggle('ok', !!v && v.ok);
       b.classList.toggle('wait', !!v && !v.ok);
@@ -268,11 +326,14 @@
       b.classList.toggle('devwarn', lv === 'hard');
       b.classList.toggle('devsoft', lv === 'soft');
       b.querySelector('.nm').textContent = !v ? '' : (showReal && p ? p.name : v.n);
-      b.querySelector('.st').textContent = !v ? '' : lv === 'hard' ? '⚠ 기기 다름' : lv === 'soft' ? 'ⓘ 브라우저' : (v.ok ? '출석완료' : '서명 전');
+      b.querySelector('.st').textContent = !v ? '' : aw ? '⏱ ' + fmtDur(el) : lv === 'hard' ? '⚠ 기기 다름' : lv === 'soft' ? 'ⓘ 브라우저' : (v.ok ? '출석완료' : '서명 전');
       b.querySelector('.st').classList.toggle('st-dev', lv === 'hard');
       b.querySelector('.st').classList.toggle('st-soft', lv === 'soft');
       b.querySelector('.bd').textContent = showReal && p ? p.birth : '';
-    });
+  }
+
+  function paint() {
+    APP.updateSeats($('map'), paintSeat);
     var c = data.counts || {};
     $('sTotal').textContent = c.total || 0;
     $('sSigned').textContent = c.signed || 0;
@@ -290,6 +351,10 @@
 
     $('modeLbl').hidden = !admin; $('nameBtn').hidden = !admin; $('sessBtns').hidden = !admin;
     $('proxyBtn').hidden = !admin; $('listBtn').hidden = !admin; $('signBtn').hidden = !admin;
+    $('chkBtn').hidden = !admin;
+    $('chkBtn').classList.toggle('on', admin && chkOn);
+    document.body.classList.toggle('staff-chk', admin && chkOn);
+    if (admin) { awayLoad(); renderChk(); }
     $('nameBtn').textContent = showReal ? '이름 가리기' : '실명 보기';
     if (admin) renderSessBtns();
   }
@@ -381,33 +446,221 @@
       seatOp({ op: 'assign', seat: id, o: m.o }, m.name + ' → ' + APP.seatLabel(id) + ' 이동했습니다.');
       return;
     }
+    if (p) { openPerson(p); return; }
     sheetSeat = id;
     $('sheetSub').textContent = APP.seatLabel(id);
-    if (p) {
-      $('sheetTitle').textContent = p.name + ' (' + p.birth + ')';
-      $('sheetBody').innerHTML = '<p>' + telHtml(p) + (p.org ? ' <span class="muted">· ' + esc(p.org) + '</span>' : '') + '</p>' +
-        (p.devFlag ? '<p>' + devTagHtml(p.devFlag) + ' <span class="muted">' + (devLevel(p.devFlag) === 'hard' ? '처음 출석한 휴대폰과 다른 휴대폰으로 출석했습니다. 본인 여부를 확인해 주세요.' : '같은 휴대폰에서 다른 인터넷 앱(브라우저)으로 출석한 것으로 보입니다. 참고용입니다.') + '</span></p>' : '') +
-        '<p class="muted">' + esc(sessText(p)) + '</p>' +
-        '<div class="row2"><button class="btn secondary" id="moveBtn" type="button">다른 좌석으로 이동</button>' +
-        '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">좌석 해제</button></div>';
+    $('sheetTitle').textContent = '빈 좌석 · 직접 배정';
+    $('sheetBody').innerHTML = '<input id="q" type="search" placeholder="이름 또는 연락처 검색"><div id="pickList"></div>';
+    $('q').addEventListener('input', renderPick);
+    renderPick();
+    $('sheetBg').classList.add('show');
+  }
+
+  // 수강생 상세 (좌석을 누르거나 확인 목록에서 이름을 누르면 표시)
+  function openPerson(p) {
+    var id = p.seat || null;
+    sheetSeat = id;
+    personOpen = p.o;
+    $('sheetSub').textContent = id ? APP.seatLabel(id) : '좌석 미지정';
+    $('sheetTitle').textContent = p.name + ' (' + p.birth + ')';
+    $('sheetBody').innerHTML = '<p>' + telHtml(p) + (p.org ? ' <span class="muted">· ' + esc(p.org) + '</span>' : '') + '</p>' +
+      (p.devFlag ? '<p>' + devTagHtml(p.devFlag) + ' <span class="muted">' + (devLevel(p.devFlag) === 'hard' ? '처음 출석한 휴대폰과 다른 휴대폰으로 출석했습니다. 본인 여부를 확인해 주세요.' : '같은 휴대폰에서 다른 인터넷 앱(브라우저)으로 출석한 것으로 보입니다. 참고용입니다.') + '</span></p>' : '') +
+      '<p class="muted">' + esc(sessText(p)) + '</p>' +
+      '<div class="tbox" id="tbox"></div>' +
+      (id ? '<div class="row2"><button class="btn secondary" id="moveBtn" type="button">다른 좌석으로 이동</button>' +
+        '<button class="btn" id="clearBtn" type="button" style="background:var(--bad)">좌석 해제</button></div>'
+        : '<p class="muted">좌석이 지정되지 않았습니다. 배치도에서 빈 좌석을 눌러 직접 배정할 수 있습니다.</p>');
+    renderTimerBox(p);
+    if (id) {
       $('moveBtn').addEventListener('click', function () {
         moving = { o: p.o, name: p.name, from: id };
         $('moveText').textContent = p.name + ' 님을 옮길 빈 좌석을 누르세요';
         $('moveBanner').classList.add('show');
-        $('sheetBg').classList.remove('show');
+        closeSheet();
         paint();
       });
       $('clearBtn').addEventListener('click', function () {
         if (window.confirm(p.name + ' 님의 ' + APP.seatLabel(id) + ' 좌석을 해제할까요?')) seatOp({ op: 'clear', seat: id }, '좌석을 해제했습니다.');
       });
-    } else {
-      $('sheetTitle').textContent = '빈 좌석 · 직접 배정';
-      $('sheetBody').innerHTML = '<input id="q" type="search" placeholder="이름 또는 연락처 검색"><div id="pickList"></div>';
-      $('q').addEventListener('input', renderPick);
-      renderPick();
     }
     $('sheetBg').classList.add('show');
   }
+
+  // ---------- 직원 화면: 자리 비움 타이머 (15분 내 복귀 확인용) ----------
+  // 기록은 이 직원 기기의 브라우저에 회차별로 저장됩니다(다른 직원 기기와 공유되지 않음).
+  var AWAY_LIMIT_MIN = 15, AWAY_LIMIT = AWAY_LIMIT_MIN * 60 * 1000;
+  var awayList = [], awayRound = null, personOpen = null;
+  function awayKey() { return 'away_' + (data.round || 'none'); }
+  function awayLoad() {
+    var r = data.round || 'none';
+    if (awayRound === r) return;
+    awayRound = r;
+    try { awayList = JSON.parse(localStorage.getItem(awayKey()) || '[]') || []; } catch (e) { awayList = []; }
+  }
+  function awaySave() { try { localStorage.setItem(awayKey(), JSON.stringify(awayList)); } catch (e) {} }
+  function awayRunning(o) { return awayList.filter(function (a) { return a.o === o && !a.end; })[0] || null; }
+  function awayOf(o) { return awayList.filter(function (a) { return a.o === o; }); }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function fmtDur(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    return pad2(Math.floor(s / 60)) + ':' + pad2(s % 60);
+  }
+  function fmtDurKo(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    return Math.floor(s / 60) + '분 ' + pad2(s % 60) + '초';
+  }
+  function hm(t) { var d = new Date(t); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+  function awayStart(p) {
+    if (awayRunning(p.o)) return;
+    awayList.push({ id: Date.now() + '_' + p.o, o: p.o, name: p.name, birth: p.birth, seat: p.seat || '', sess: data.session || 0, start: Date.now(), end: 0, alerted: false });
+    awaySave(); toast(p.name + ' 님 자리 비움 시간 측정을 시작했습니다.');
+  }
+  function awayBack(o) {
+    var a = awayRunning(o); if (!a) return;
+    a.end = Date.now(); awaySave();
+    var d = a.end - a.start;
+    toast(a.name + ' 님 복귀 · ' + fmtDurKo(d) + (d > AWAY_LIMIT ? ' (' + AWAY_LIMIT_MIN + '분 초과)' : ''));
+  }
+  function awayUndo(id) {
+    awayList = awayList.filter(function (a) { return a.id !== id; }); awaySave();
+  }
+  function renderTimerBox(p) {
+    var box = $('tbox'); if (!box) return;
+    var a = awayRunning(p.o), hist = awayOf(p.o).filter(function (x) { return x.end; });
+    var h = '';
+    if (a) {
+      var el = Date.now() - a.start;
+      h += '<div class="muted">자리 비움 · ' + hm(a.start) + ' 나감 · 기준 ' + AWAY_LIMIT_MIN + '분</div>' +
+        '<div class="tnow tdur' + (el >= AWAY_LIMIT ? ' over' : '') + '" data-s="' + a.start + '" data-long="1">' + fmtDur(el) + (el >= AWAY_LIMIT ? ' 초과' : '') + '</div>' +
+        '<div class="tbtns"><button type="button" class="t-back" id="tBack">복귀 확인</button><button type="button" class="t-undo" id="tUndo">잘못 누름(삭제)</button></div>';
+    } else {
+      h += '<div class="muted">교육 중 자리를 비운 경우 눌러 주세요. ' + AWAY_LIMIT_MIN + '분이 지나면 빨간색으로 표시됩니다.</div>' +
+        '<div class="tbtns"><button type="button" class="t-start" id="tStart">⏱ 자리 비움 시작</button></div>';
+    }
+    if (hist.length) {
+      h += '<div class="thist">' + hist.map(function (x) {
+        var d = x.end - x.start;
+        return (x.sess ? x.sess + '교시 ' : '') + hm(x.start) + ' 나감 → ' + hm(x.end) + ' 복귀 · ' + fmtDurKo(d) + (d > AWAY_LIMIT ? ' <b style="color:#d10000">초과</b>' : '');
+      }).join('<br>') + '</div>';
+    }
+    box.innerHTML = h;
+    if ($('tStart')) $('tStart').addEventListener('click', function () { awayStart(p); afterAway(p); });
+    if ($('tBack')) $('tBack').addEventListener('click', function () { awayBack(p.o); afterAway(p); });
+    if ($('tUndo')) $('tUndo').addEventListener('click', function () {
+      if (window.confirm('이번 자리 비움 기록을 삭제할까요?')) { awayUndo(a.id); afterAway(p); }
+    });
+  }
+  function afterAway(p) { renderTimerBox(p); APP.updateSeats($('map'), paintSeat); renderChk(); }
+
+  // 1초마다 경과 시간 갱신 · 15분 경과 시 1회 알림
+  setInterval(function () {
+    if (!admin) return;
+    var now = Date.now(), running = awayList.filter(function (a) { return !a.end; });
+    running.forEach(function (a) {
+      if (!a.alerted && now - a.start >= AWAY_LIMIT) {
+        a.alerted = true; awaySave();
+        toast('⏱ ' + a.name + ' 님 자리 비움 ' + AWAY_LIMIT_MIN + '분이 지났습니다.');
+        try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (e) {}
+        renderChk();
+      }
+    });
+    if (running.length) APP.updateSeats($('map'), paintSeat);
+    document.querySelectorAll('.tdur[data-s]').forEach(function (el) {
+      var d = now - Number(el.dataset.s), over = d >= AWAY_LIMIT;
+      el.textContent = fmtDur(d) + (over && el.dataset.long ? ' 초과' : '');
+      el.classList.toggle('over', over);
+    });
+  }, 1000);
+
+  // ---------- 직원 화면: 확인 목록 ----------
+  var chkOn = true, chkTab = 'sign';
+  try { chkOn = localStorage.getItem('chk_on') !== '0'; chkTab = localStorage.getItem('chk_tab') || 'sign'; } catch (e) {}
+  function realPerson(p) {   // 생년월일·출석·좌석이 모두 없는 행(테스트 행)은 제외
+    return !!(p.birth || p.s1 || p.s2 || p.s3 || p.seat);
+  }
+  function chkItem(p, sub, right) {
+    return '<div class="chk-item" data-o="' + esc(p.o) + '"><div class="who"><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.birth || '') + '</span>' +
+      '<span class="sub">' + sub + '</span></div>' + right + '</div>';
+  }
+  function callBtn(p) {
+    return p.phone ? '<a class="call" href="tel:' + esc(p.phone) + '" title="' + esc(fmtPhone(p.phone)) + '">☎ 전화</a>' : '';
+  }
+  function renderChk() {
+    if (!admin || !chkOn) return;
+    var sess = data.session || 1;
+    var all = (data.people || []).filter(function (p) { return realPerson(p) && !p.absent; });
+    var noSign = all.filter(function (p) { return !p['s' + sess]; });
+    var noSeat = all.filter(function (p) { return !p.seat && (p.s1 || p.s2 || p.s3); });
+    var running = awayList.filter(function (a) { return !a.end; });
+    var done = awayList.filter(function (a) { return a.end; });
+    var overN = running.filter(function (a) { return Date.now() - a.start >= AWAY_LIMIT; }).length;
+    $('chkSess').textContent = (data.sessionLabel || sess + '교시') + ' 기준 · ' + (data.t || '');
+    $('cSign').textContent = noSign.length; $('cSeat').textContent = noSeat.length; $('cAway').textContent = running.length;
+    $('cAway').classList.toggle('hot', overN > 0);
+    document.querySelectorAll('.chk-tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.t === chkTab); });
+    var byName = function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; };
+    var h = '', note = '';
+    if (chkTab === 'sign') {
+      note = sess + '교시에 아직 서명하지 않은 분입니다(당일불참 제외). 이전 교시 출석자가 위에 표시됩니다.';
+      noSign.sort(function (a, b) { return ((b.s1 || b.s2 || b.s3) ? 1 : 0) - ((a.s1 || a.s2 || a.s3) ? 1 : 0) || byName(a, b); });
+      h = noSign.map(function (p) {
+        var prev = [1, 2, 3].filter(function (k) { return k < sess && p['s' + k]; }).map(function (k) { return k + '교시 출석'; }).join(' · ');
+        return chkItem(p, (p.seat ? APP.seatLabel(p.seat) : '좌석 없음') + (prev ? ' · ' + prev : sess > 1 ? ' · 이전 교시 미출석' : ''), callBtn(p));
+      }).join('');
+    } else if (chkTab === 'seat') {
+      note = '서명(출석)은 했으나 좌석을 지정하지 않은 분입니다.';
+      h = noSeat.sort(byName).map(function (p) { return chkItem(p, sessText(p), callBtn(p)); }).join('');
+    } else {
+      note = '수강생을 누른 뒤 「자리 비움 시작」을 누르면 측정됩니다. ' + AWAY_LIMIT_MIN + '분이 지나면 빨간색으로 표시됩니다. 기록은 이 기기에만 저장됩니다.';
+      h = running.sort(function (a, b) { return a.start - b.start; }).map(function (a) {
+        var el = Date.now() - a.start;
+        return '<div class="chk-item" data-o="' + esc(a.o) + '"><div class="who"><b>' + esc(a.name) + '</b><span class="sub">' + (a.seat ? APP.seatLabel(a.seat) + ' · ' : '') + hm(a.start) + ' 나감</span></div>' +
+          '<span class="tdur' + (el >= AWAY_LIMIT ? ' over' : '') + '" data-s="' + a.start + '">' + fmtDur(el) + '</span></div>';
+      }).join('');
+      if (done.length) {
+        h += '<div class="chk-note" style="margin-top:10px"><b>복귀 기록</b></div>' + done.slice().sort(function (a, b) { return b.end - a.end; }).map(function (a) {
+          var d = a.end - a.start;
+          return '<div class="chk-item" data-o="' + esc(a.o) + '"><div class="who"><b>' + esc(a.name) + '</b><span class="sub">' + (a.sess ? a.sess + '교시 · ' : '') + hm(a.start) + ' → ' + hm(a.end) + '</span></div>' +
+            '<span class="tdur' + (d > AWAY_LIMIT ? ' over' : '') + '" style="color:' + (d > AWAY_LIMIT ? '#d10000' : '#138a4a') + '">' + fmtDurKo(d) + (d > AWAY_LIMIT ? ' 초과' : '') + '</span></div>';
+        }).join('');
+      }
+    }
+    $('chkNote').textContent = note;
+    $('chkTools').hidden = chkTab !== 'away' || !awayList.length;
+    $('chkList').innerHTML = h || '<p class="muted" style="padding:8px 4px">해당하는 분이 없습니다.</p>';
+  }
+  $('chkList').addEventListener('click', function (e) {
+    if (e.target.closest('a.call')) return;
+    var it = e.target.closest('.chk-item'); if (!it) return;
+    var o = it.dataset.o;
+    var p = (data.people || []).filter(function (x) { return String(x.o) === o; })[0];
+    if (p) openPerson(p);
+  });
+  document.querySelectorAll('.chk-tabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      chkTab = b.dataset.t; try { localStorage.setItem('chk_tab', chkTab); } catch (e) {}
+      renderChk();
+    });
+  });
+  $('chkBtn').addEventListener('click', function () {
+    chkOn = !chkOn; try { localStorage.setItem('chk_on', chkOn ? '1' : '0'); } catch (e) {}
+    paint();
+  });
+  $('awayCopy').addEventListener('click', function () {
+    var rows = [['회차', '성명', '생년월일', '좌석', '교시', '나감', '복귀', '자리 비움 시간', AWAY_LIMIT_MIN + '분 초과']];
+    awayList.slice().sort(function (a, b) { return a.start - b.start; }).forEach(function (a) {
+      var d = (a.end || Date.now()) - a.start;
+      rows.push([data.round || '', a.name, a.birth || '', a.seat ? APP.seatLabel(a.seat) : '', a.sess ? a.sess + '교시' : '', hm(a.start), a.end ? hm(a.end) : '미복귀', fmtDurKo(d), d > AWAY_LIMIT ? '초과' : '']);
+    });
+    var txt = rows.map(function (r) { return r.join('\t'); }).join('\n');
+    var done = function () { toast('기록을 복사했습니다. 엑셀에 붙여넣기 하세요.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
+    function fallback() {
+      var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { toast('복사하지 못했습니다.'); }
+      ta.remove();
+    }
+  });
 
   $('moveCancel').addEventListener('click', function () { moving = null; $('moveBanner').classList.remove('show'); paint(); });
 
@@ -474,7 +727,8 @@
     $('sheetBg').classList.remove('show');
     refresh();
   }
-  $('closeSheet').addEventListener('click', function () { $('sheetBg').classList.remove('show'); });
+  function closeSheet() { personOpen = null; $('sheetBg').classList.remove('show'); }
+  $('closeSheet').addEventListener('click', closeSheet);
 
   paint();
   refresh().finally(loop);
