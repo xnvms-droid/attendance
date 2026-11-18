@@ -26,6 +26,10 @@
   .seat { border-radius: 8px; gap: .2vh; }
   .seat .no { font-size: clamp(11px, 2vh, 24px); color: #8a919c; font-weight: 700; }
   .seat .nm { font-size: clamp(11px, 2.1vh, 24px); }
+  /* 9열(3석)은 칸이 좁아 이름 글씨를 줄여 잘리지 않게 */
+  .back-row .seat { padding-left: 0; padding-right: 0; }
+  .back-row .seat .nm { font-size: clamp(9px, 1.55vh, 17px); letter-spacing: -1.5px; text-overflow: clip; overflow: visible; }
+  .back-row .seat .st { font-size: clamp(8px, 1.15vh, 13px); letter-spacing: -1px; white-space: nowrap; }
   .seat .st { font-size: clamp(9px, 1.4vh, 16px); font-weight: 800; }
   .seat .bd { font-size: clamp(8px, 1.3vh, 14px); color: var(--muted); }
   .seat.filled .no { display: none; }   /* 좌석이 채워지면 번호 대신 이름·출석완료 표시 */
