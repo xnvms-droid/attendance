@@ -111,6 +111,12 @@
   }
 
   function render(res) {
+    // 생년월일이 비어 있고 서명도 없는 행(테스트용으로 넣은 행 등)은 서명부·좌석배치도에서 제외하고 연번을 다시 매김
+    res.rows = res.rows.filter(function (r) {
+      var signed = (r.s || []).some(function (x) { return !!x; }) || (r.tm || []).some(function (x) { return !!x; });
+      return !(!String(r.birth || '').trim() && !signed && !r.seat);
+    });
+    res.rows.forEach(function (r, i) { r.no = i + 1; });
     var cnt = [0, 0, 0];
     var abs = 0;
     res.rows.forEach(function (r) { if (r.absent) { abs++; return; } r.s.forEach(function (s, i) { if (s) cnt[i]++; }); });
