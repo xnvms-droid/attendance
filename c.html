@@ -238,7 +238,23 @@
   $('ph').addEventListener('input', function () {
     var d = this.value.replace(/\D/g, '').slice(0, 11);
     this.value = d.length > 7 ? d.slice(0, 3) + '-' + d.slice(3, d.length - 4) + '-' + d.slice(-4) : d.length > 3 ? d.slice(0, 3) + '-' + d.slice(3) : d;
+    if (d.length === 11) goToPad(this);   // 휴대폰번호 11자리를 다 쓰면 키패드를 닫고 서명칸으로 자동 이동
   });
+
+  // 키패드를 닫고 서명칸이 화면 가운데 오도록 자동으로 내림 (수강생이 직접 화면을 내리다 서명칸에 선이 그어지는 것 방지)
+  function goToPad(input) {
+    try { input.blur(); } catch (e) {}
+    var moved = false;
+    var go = function () {
+      if (moved) return; moved = true;
+      if (window.visualViewport) window.visualViewport.removeEventListener('resize', go);
+      setTimeout(function () {
+        try { $('pad').scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { $('pad').scrollIntoView(); }
+      }, 60);
+    };
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', go);   // 키패드가 닫혀 화면 크기가 바뀐 뒤 이동
+    setTimeout(go, 450);   // 화면 크기 변화가 감지되지 않는 기기 대비
+  }
   $('bd').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 6); });
 
   // ---------- 서명 패드 (안내는 빨간색, 실제 서명은 검정색) ----------
@@ -270,11 +286,16 @@
     pad.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false });
   });
   function clearSel() { try { var sel = window.getSelection(); if (sel && sel.rangeCount) sel.removeAllRanges(); } catch (x) {} }
+  // 처음 닿은 손가락 하나만 서명으로 인식 (다른 손가락·손바닥이 함께 닿아도 선이 이어지지 않도록)
+  var activeId = null;
   pad.addEventListener('pointerdown', function (e) {
-    e.preventDefault(); clearSel(); pad.setPointerCapture(e.pointerId); drawing = true; last = pos(e); strokes.push([last]); redraw();
+    e.preventDefault();
+    if (drawing && activeId !== null && e.pointerId !== activeId) return;
+    clearSel(); try { pad.setPointerCapture(e.pointerId); } catch (x) {}
+    activeId = e.pointerId; drawing = true; last = pos(e); strokes.push([last]); redraw();
   });
   pad.addEventListener('pointermove', function (e) {
-    if (!drawing) return; e.preventDefault();
+    if (!drawing || e.pointerId !== activeId) return; e.preventDefault();
     var p = pos(e), r = pad.getBoundingClientRect();
     inkLen += Math.hypot((p[0] - last[0]) * r.width, (p[1] - last[1]) * r.height);
     strokes[strokes.length - 1].push(p); last = p;
@@ -282,7 +303,9 @@
     var s = strokes[strokes.length - 1], a = s[s.length - 2];
     pctx.moveTo(a[0] * r.width, a[1] * r.height); pctx.lineTo(p[0] * r.width, p[1] * r.height); pctx.stroke();
   });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { pad.addEventListener(ev, function () { drawing = false; }); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+    pad.addEventListener(ev, function (e) { if (e.pointerId === activeId) { drawing = false; activeId = null; } });
+  });
   $('clearPad').addEventListener('click', function () { strokes = []; inkLen = 0; redraw(); });
   window.addEventListener('resize', resizePad);
 
