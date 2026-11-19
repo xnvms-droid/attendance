@@ -51,13 +51,15 @@
   .sgrid .back .st { flex: 1; margin: 0; padding: .6mm .5mm; }
   .sgrid .back .st b { font-size: 8pt; }
   .spage .desk { margin-top: 3mm; width: 90mm; border: 1px solid #000; text-align: center; font-size: 9pt; font-weight: 700; padding: 1.2mm 0; }
+  #excl { margin: 8px auto 0; max-width: 297mm; background: #fff7e6; border: 1px solid #e3a33b; color: #6b4300; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  #excl label { margin-left: 8px; font-weight: 700; cursor: pointer; }
   .spage .note { margin-top: 2.5mm; width: 256mm; font-size: 8.5pt; color: #333; line-height: 1.5; }
 
   @media print {
     #seatWrap { display: none !important; }
     @page { size: A4 landscape; margin: 0; }
     body { background: #fff; }
-    .bar, #msg { display: none !important; }
+    .bar, #msg, #excl { display: none !important; }
     .page { margin: 0; box-shadow: none; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
     th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -76,6 +78,7 @@
   <div id="saveMsg"></div>
 </div>
 <div id="msg">불러오는 중입니다…</div>
+<div id="excl" hidden></div>
 <div id="pages"></div>
 <div id="seatWrap" hidden><h2>좌석배치도 (서명부 폴더에 PDF로 함께 저장됩니다)</h2><section class="spage" id="seatPage"></section></div>
 
@@ -90,6 +93,9 @@
   var key = APP.staffKey(), esc = APP.esc;
   var ROWS_PER_PAGE = 17;
   var loaded = null;
+  // 서명부·좌석배치도에서 항상 빼는 이름 (직원 테스트용 명단). config.js에 SIGN_EXCLUDE: [...]가 있으면 그 목록을 사용
+  var EXCLUDE_NAMES = (APP.CFG && APP.CFG.SIGN_EXCLUDE) || ['한승목', '김가영'];
+  var includeExcluded = false;   // 화면의 「포함하기」를 누른 경우에만 포함
   var $ = function (id) { return document.getElementById(id); };
 
   async function load() {
@@ -111,6 +117,19 @@
   }
 
   function render(res) {
+    if (!res.allRows) res.allRows = res.rows.slice();
+    res.rows = res.allRows.slice();
+    // 테스트용 이름(한승목·김가영)은 서명부·좌석배치도에서 제외
+    var cut = res.rows.filter(function (r) { return EXCLUDE_NAMES.indexOf(String(r.name || '').replace(/\s/g, '')) >= 0; });
+    if (!includeExcluded) res.rows = res.rows.filter(function (r) { return cut.indexOf(r) < 0; });
+    if (cut.length) {
+      $('excl').hidden = false;
+      $('excl').innerHTML = (includeExcluded ? '테스트 명단을 포함하여 표시 중입니다: ' : '테스트 명단으로 지정된 ' + cut.length + '명을 서명부·좌석배치도에서 제외했습니다: ') +
+        '<b>' + cut.map(function (r) { return esc(r.name) + (r.birth ? '(' + esc(r.birth) + ')' : ''); }).join(', ') + '</b>' +
+        ' <label><input type="checkbox" id="exclChk"' + (includeExcluded ? ' checked' : '') + '> 실제 수강생이므로 포함하기</label>' +
+        '<br><small>※ 이 안내는 인쇄·PDF에는 나오지 않습니다.</small>';
+      $('exclChk').addEventListener('change', function () { includeExcluded = this.checked; render(res); });
+    } else { $('excl').hidden = true; }
     // 생년월일이 비어 있고 서명도 없는 행(테스트용으로 넣은 행 등)은 서명부·좌석배치도에서 제외하고 연번을 다시 매김
     res.rows = res.rows.filter(function (r) {
       var signed = (r.s || []).some(function (x) { return !!x; }) || (r.tm || []).some(function (x) { return !!x; });
