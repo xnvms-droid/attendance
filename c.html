@@ -43,6 +43,14 @@
   .bigmsg .ic { width: 78px; height: 78px; margin: 0 auto 14px; border-radius: 50%; background: #138a4a; color: #fff; font-size: 46px; font-weight: 900; line-height: 78px; }
   .bigmsg .t { font-size: 27px; font-weight: 900; line-height: 1.35; color: #111; word-break: keep-all; }
   .bigmsg .s { font-size: 21px; font-weight: 800; line-height: 1.45; color: #1f5fbf; margin-top: 12px; word-break: keep-all; }
+  .bigmsg .orgbox { margin: 14px 0 4px; padding: 14px 10px; border: 2px solid #1f5fbf; border-radius: 14px; background: #f1f6ff; font-size: 23px; font-weight: 900; color: #111; word-break: keep-all; }
+  .bigmsg .orgbox.none { border-color: #d10000; background: #fff1f1; color: #d10000; }
+  .bigmsg .q { font-size: 21px; font-weight: 800; margin-top: 12px; color: #111; }
+  .bigmsg .row { display: flex; gap: 8px; }
+  .bigmsg .row button { flex: 1; }
+  .bigmsg button.no { background: #e9ecf1; color: #1d2129; }
+  .bigmsg a.link { display: block; margin-top: 22px; border-radius: 14px; background: #138a4a; color: #fff; font-size: 20px; font-weight: 900; padding: 15px; text-decoration: none; }
+  .bigmsg a.link + button { margin-top: 10px; background: #e9ecf1; color: #1d2129; }
   .bigmsg button { margin-top: 22px; width: 100%; border: 0; border-radius: 14px; background: #1f5fbf; color: #fff; font-size: 20px; font-weight: 900; padding: 15px; }
   .pad-wrap { position: relative; margin-top: 10px; border: 2px dashed #d10000; border-radius: 12px; background: #fff; touch-action: none; }
   /* 서명 중 아이폰에서 글자 선택·복사 메뉴가 뜨지 않도록 (입력칸은 제외) */
@@ -135,6 +143,7 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="bigmsg" id="orgMsg"><div class="box" id="orgBox"></div></div>
 <div class="bigmsg" id="bigMsg"><div class="box"><div class="ic">✓</div><div class="t" id="bigT"></div><div class="s" id="bigS"></div><button type="button" id="bigOk">확인</button></div></div>
 
 <script src="config.js"></script>
@@ -365,7 +374,9 @@
         return;
       }
       msg.textContent = '';
-      S.me = { round: String(res.round), o: res.o, t: res.t, name: res.name, seat: res.seat || '', allowChange: res.allowChange };
+      S.me = { round: String(res.round), o: res.o, t: res.t, name: res.name, seat: res.seat || '', allowChange: res.allowChange,
+        // 마지막 교시(3교시)에만 소속 확인. 서버가 소속 정보를 보내 준 경우에만 동작
+        orgCheck: typeof res.org === 'string' && Number(res.session) === Number(res.lastSession || 3), org: res.org || '' };
       if (!S.staff) {
         store.setJSON('ck_me', { round: S.round, name: name, birth: birth, phone: $('ph').value });
         dev.s[String(S.session)] = who;
@@ -447,13 +458,53 @@
   // 「이 좌석이 맞습니다」 → 큰 완료 알림 후 종료 화면
   $('keepBtn').addEventListener('click', function () { finish(); });
 
+  // ---------- 마지막 교시: 소속 확인 → 대상자등록 안내 ----------
+  var REG_GUIDE_URL = 'https://www.welfare.net/edu/common-board/inform-list/inform-detail?name=450222';
+  var orgAnswer = '';   // 'yes' | 'no'
+  function orgConfirm() {
+    return new Promise(function (resolve) {
+      var box = $('orgBox'), org = String(S.me.org || '').trim();
+      var close = function () { $('orgMsg').classList.remove('show'); resolve(); };
+      box.innerHTML = '<div class="ic" style="background:#1f5fbf">?</div>' +
+        '<div class="t">소속을 확인해 주세요</div>' +
+        '<div class="s">이수증에 아래 소속으로 출력됩니다.</div>' +
+        '<div class="orgbox' + (org ? '' : ' none') + '">' + (org ? APP.esc(org) : '등록된 소속이 없습니다') + '</div>' +
+        '<div class="q">이 소속이 맞습니까?</div>' +
+        '<div class="row"><button type="button" id="orgYes">예, 맞습니다</button><button type="button" class="no" id="orgNo">아니요</button></div>';
+      $('orgMsg').classList.add('show');
+      $('orgYes').onclick = function () {
+        orgAnswer = 'yes';
+        box.innerHTML = '<div class="ic">✓</div><div class="t">감사합니다</div><div class="s">오늘 하루 고생 많으셨습니다.</div>' +
+          '<button type="button" id="orgOk">확인</button>';
+        $('orgOk').onclick = close;
+      };
+      $('orgNo').onclick = function () {
+        orgAnswer = 'no';
+        box.innerHTML = '<div class="ic" style="background:#e67e00">!</div><div class="t">대상자등록을 부탁드립니다</div>' +
+          '<div class="s">이수증이 발급되기 전, <b style="color:#d10000">2주 안에</b> 꼭 대상자등록을 해 주시기 바랍니다.</div>' +
+          '<a class="link" href="' + REG_GUIDE_URL + '" target="_blank" rel="noopener">대상자등록 방법 보기</a>' +
+          '<button type="button" id="orgOk">닫기</button>';
+        $('orgOk').onclick = close;
+      };
+    });
+  }
+
   function finish() {
     var seatTx = S.me && S.me.seat ? APP.seatLabel(S.me.seat) : '';
     bigMsg('출석 및 좌석이 확인되었습니다', (seatTx ? seatTx + ' · ' : '') + '감사합니다', 3000).then(function () {
+      return S.me && S.me.orgCheck ? orgConfirm() : null;
+    }).then(function () {
       looping = true;   // 좌석 화면 자동 갱신 중지
       showMsg('출석이 완료되었습니다', (S.sessionLabel || '') + (seatTx ? ' · ' + seatTx : '') + ' · 이제 화면을 닫으셔도 됩니다.');
       $('steps').style.display = 'none';
       $('msgBig').style.color = '#138a4a'; $('msgBig').textContent = '✓ 출석이 완료되었습니다';
+      if (S.me && S.me.orgCheck) {
+        $('msgSmall').innerHTML += '<br>오늘 하루 고생 많으셨습니다.';
+        if (orgAnswer === 'no') {
+          $('msgSmall').innerHTML += '<br><br><b style="color:#d10000">이수증 발급 전, 2주 안에 꼭 대상자등록을 해 주시기 바랍니다.</b>' +
+            '<br><a class="btn small" href="' + REG_GUIDE_URL + '" target="_blank" rel="noopener">대상자등록 방법 보기</a>';
+        }
+      }
       if (S.staff) {
         $('msgSmall').innerHTML += '<br><br><a class="btn small" href="c.html?k=' + encodeURIComponent(staffK) + '">다음 사람 대리입력</a>';
       }
